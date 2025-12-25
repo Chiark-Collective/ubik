@@ -276,11 +276,11 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
         />
       )}
 
-      {/* Particle system - only during active stroke with valid hit point */}
-      {isActive && isScribbling && currentHitPointRef.current && (
+      {/* Particle system - only during active stroke */}
+      {isActive && isScribbling && (
         <SprayParticleSystem
           nozzlePosition={nozzlePositionRef}
-          targetPosition={currentHitPointRef.current}
+          targetPosition={currentHitPointRef}
           labelColor={color}
           tierConfig={tierConfig}
         />

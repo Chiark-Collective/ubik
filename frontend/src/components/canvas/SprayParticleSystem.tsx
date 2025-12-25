@@ -8,7 +8,7 @@ import type { TierConfig } from '../../hooks/useQualityTier'
 
 interface SprayParticleSystemProps {
   nozzlePosition: React.MutableRefObject<THREE.Vector3>
-  targetPosition: THREE.Vector3
+  targetPosition: React.MutableRefObject<THREE.Vector3 | null>
   labelColor: string
   tierConfig: TierConfig
 }
@@ -81,11 +81,15 @@ export function SprayParticleSystem({
   useFrame((_, delta) => {
     const { positions, colors, sizes, velocities, lives, maxLives, nextIndex, activeCount } = buffers
 
+    // Skip if no valid target
+    const target = targetPosition.current
+    if (!target) return
+
     // Clamp delta to avoid huge jumps
     const dt = Math.min(delta, 0.05)
 
     // Calculate emission direction
-    _direction.copy(targetPosition).sub(nozzlePosition.current).normalize()
+    _direction.copy(target).sub(nozzlePosition.current).normalize()
 
     // Create orthogonal basis for spread
     if (Math.abs(_direction.y) < 0.9) {
@@ -145,7 +149,7 @@ export function SprayParticleSystem({
     }
 
     // Update existing particles
-    const distToTarget = nozzlePosition.current.distanceTo(targetPosition)
+    const distToTarget = nozzlePosition.current.distanceTo(target)
 
     for (let i = 0; i < maxParticles; i++) {
       if (lives[i] <= 0) continue
