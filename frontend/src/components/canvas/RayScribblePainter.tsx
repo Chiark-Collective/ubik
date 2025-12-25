@@ -1,5 +1,5 @@
 // ABOUTME: Ray scribble painter for creating ray-carve constraints
-// ABOUTME: Captures scribble strokes and casts rays to find surface hits
+// ABOUTME: Captures scribble strokes and casts rays to find surface hits with spray paint effect
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
@@ -8,9 +8,13 @@ import * as THREE from 'three'
 import { useProjectStore } from '../../stores/projectStore'
 import { useLabelStore, type RayCarveConstraint, type RayInfo } from '../../stores/labelStore'
 import { useRayScribbleStore, type RayInfo as StoreRayInfo } from '../../stores/rayScribbleStore'
+import { useSprayEffectStore } from '../../stores/sprayEffectStore'
 import { useSimplePointCloudRaycast } from '../../hooks/usePointCloudBVH'
 import { useLocalSpacing } from '../../hooks/useLocalSpacing'
 import { useConstraintSync } from '../../hooks/useConstraintSync'
+import { useQualityTier } from '../../hooks/useQualityTier'
+import { SprayCanHand } from './SprayCanHand'
+import { SprayParticleSystem } from './SprayParticleSystem'
 
 const COLORS = {
   solid: '#3b82f6',
@@ -37,7 +41,6 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   const useAdaptiveBackBuffer = useRayScribbleStore((s) => s.useAdaptiveBackBuffer)
   const backBufferCoefficient = useRayScribbleStore((s) => s.backBufferCoefficient)
   const isScribbling = useRayScribbleStore((s) => s.isScribbling)
-  const currentStrokeRays = useRayScribbleStore((s) => s.currentStrokeRays)
   const startStroke = useRayScribbleStore((s) => s.startStroke)
   const addRayToStroke = useRayScribbleStore((s) => s.addRayToStroke)
   const endStroke = useRayScribbleStore((s) => s.endStroke)
@@ -46,9 +49,18 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   // Local spacing computation for adaptive back buffer
   const { isReady: spacingReady, globalMean, getSpacing } = useLocalSpacing(pointCloudPositions)
 
+  // Spray effect settings
+  const handedness = useSprayEffectStore((s) => s.handedness)
+  const { config: tierConfig } = useQualityTier()
+
   const { camera, raycaster, pointer, gl } = useThree()
 
   const isActive = mode === 'ray_scribble'
+
+  // Refs for spray effect
+  const nozzlePositionRef = useRef(new THREE.Vector3())
+  const currentHitPointRef = useRef<THREE.Vector3 | null>(null)
+  const pointerDirectionRef = useRef(new THREE.Vector3(0, 0, -1))
 
   // Point cloud raycasting
   const { raycast, isReady: raycastReady } = useSimplePointCloudRaycast(
@@ -96,8 +108,30 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
     return null
   }, [camera, pointer, raycaster, raycast, raycastReady, useAdaptiveBackBuffer, spacingReady, globalMean, getSpacing])
 
-  // Update rays during scribbling
+  // Update rays during scribbling and track hit point for particles
   useFrame(() => {
+    // Always update pointer direction for hand aiming
+    if (isActive) {
+      raycaster.setFromCamera(pointer, camera)
+      pointerDirectionRef.current.copy(raycaster.ray.direction)
+
+      // Update current hit point for particle targeting
+      if (raycastReady) {
+        const hit = raycast(raycaster.ray)
+        if (hit) {
+          const hitPoint = raycaster.ray.origin.clone().add(
+            raycaster.ray.direction.clone().multiplyScalar(hit.distance)
+          )
+          currentHitPointRef.current = hitPoint
+        } else {
+          // No hit - aim at a point far away
+          currentHitPointRef.current = raycaster.ray.origin.clone().add(
+            raycaster.ray.direction.clone().multiplyScalar(10)
+          )
+        }
+      }
+    }
+
     if (!isActive || !isScribbling) return
 
     // Check if pointer moved enough
@@ -231,19 +265,28 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
 
   return (
     <group>
-      {/* Current stroke being drawn */}
-      {currentStrokeRays.length > 0 && (
-        <RayStrokeVisualization
-          rays={currentStrokeRays}
-          emptyBandWidth={emptyBandWidth}
-          backBufferCoefficient={backBufferCoefficient}
-          backBufferWidth={backBufferWidth}
-          color={color}
-          opacity={0.5}
+      {/* Spray can hand - always visible when mode active */}
+      {isActive && (
+        <SprayCanHand
+          handedness={handedness}
+          isSpraying={isScribbling}
+          tierConfig={tierConfig}
+          nozzlePositionRef={nozzlePositionRef}
+          pointerDirection={pointerDirectionRef.current}
         />
       )}
 
-      {/* Existing ray carve constraints */}
+      {/* Particle system - only during active stroke with valid hit point */}
+      {isActive && isScribbling && currentHitPointRef.current && (
+        <SprayParticleSystem
+          nozzlePosition={nozzlePositionRef}
+          targetPosition={currentHitPointRef.current}
+          labelColor={color}
+          tierConfig={tierConfig}
+        />
+      )}
+
+      {/* Existing ray carve constraints (cone visualization for committed strokes) */}
       {rayCarves.map((constraint) => (
         <RayStrokeVisualization
           key={constraint.id}

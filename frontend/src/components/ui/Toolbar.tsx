@@ -154,7 +154,7 @@ export function Toolbar() {
               className="min-w-[180px] bg-gray-800 rounded-md shadow-lg border border-gray-700 p-1"
               sideOffset={5}
             >
-              {secondaryModes.map(({ value, icon: Icon, label, shortcut, ariaLabel }) => (
+              {secondaryModes.map(({ value, icon: Icon, label, shortcut, ariaLabel: _ariaLabel }) => (
                 <DropdownMenu.Item
                   key={value}
                   data-testid={`mode-${value}`}

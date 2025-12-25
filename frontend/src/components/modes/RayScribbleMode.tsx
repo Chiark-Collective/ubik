@@ -1,9 +1,11 @@
 // ABOUTME: Settings panel for ray-scribble annotation mode
-// ABOUTME: Controls empty band width and displays scribbling instructions
+// ABOUTME: Controls empty band width, spray effect settings, and displays scribbling instructions
 
 import * as Slider from '@radix-ui/react-slider'
 import * as Switch from '@radix-ui/react-switch'
+import * as ToggleGroup from '@radix-ui/react-toggle-group'
 import { HelpTooltip } from '../ui/HelpTooltip'
+import type { Handedness } from '../../stores/sprayEffectStore'
 
 export interface LocalSpacingStatus {
   isReady: boolean
@@ -27,6 +29,10 @@ export interface RayScribbleModeProps {
   isScribbling: boolean
   strokeCount: number
   onClearStrokes: () => void
+  // Spray effect settings
+  handedness: Handedness
+  setHandedness: (hand: Handedness) => void
+  qualityTier: string
 }
 
 export function RayScribbleMode({
@@ -44,6 +50,9 @@ export function RayScribbleMode({
   isScribbling,
   strokeCount,
   onClearStrokes,
+  handedness,
+  setHandedness,
+  qualityTier,
 }: RayScribbleModeProps) {
   return (
     <div className="p-4 space-y-3 border-b border-gray-800">
@@ -201,6 +210,52 @@ export function RayScribbleMode({
             </Slider.Root>
           </div>
         )}
+      </div>
+
+      {/* Spray hand settings */}
+      <div className="space-y-2 pt-2 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <label className="text-sm text-gray-400">Spray hand</label>
+            <HelpTooltip content="Which hand holds the spray can" />
+          </div>
+          <ToggleGroup.Root
+            type="single"
+            value={handedness}
+            onValueChange={(value) => value && setHandedness(value as Handedness)}
+            className="flex gap-0.5"
+          >
+            <ToggleGroup.Item
+              value="left"
+              className={`
+                px-2 py-1 rounded-l border text-xs font-medium transition-colors
+                ${handedness === 'left'
+                  ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                  : 'border-gray-700 hover:border-gray-600 text-gray-400'
+                }
+              `}
+            >
+              Left
+            </ToggleGroup.Item>
+            <ToggleGroup.Item
+              value="right"
+              className={`
+                px-2 py-1 rounded-r border border-l-0 text-xs font-medium transition-colors
+                ${handedness === 'right'
+                  ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                  : 'border-gray-700 hover:border-gray-600 text-gray-400'
+                }
+              `}
+            >
+              Right
+            </ToggleGroup.Item>
+          </ToggleGroup.Root>
+        </div>
+
+        {/* Quality tier indicator */}
+        <div className="text-xs text-gray-500">
+          Spray quality: {qualityTier}
+        </div>
       </div>
 
       {/* Status + Clear */}

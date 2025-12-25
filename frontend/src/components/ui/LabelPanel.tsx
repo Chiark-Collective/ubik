@@ -12,6 +12,7 @@ import { useSliceStore } from '../../stores/sliceStore'
 import { useBrushStore } from '../../stores/brushStore'
 import { useSeedStore } from '../../stores/seedStore'
 import { useRayScribbleStore } from '../../stores/rayScribbleStore'
+import { useSprayEffectStore } from '../../stores/sprayEffectStore'
 import { useLocalSpacing } from '../../hooks/useLocalSpacing'
 import { usePocketStore } from '../../stores/pocketStore'
 import { useConstraintSync } from '../../hooks/useConstraintSync'
@@ -154,6 +155,10 @@ function RayScribbleModePanel() {
   const strokes = useRayScribbleStore((s) => s.strokes)
   const clearStrokes = useRayScribbleStore((s) => s.clearStrokes)
 
+  // Spray effect settings
+  const handedness = useSprayEffectStore((s) => s.handedness)
+  const setHandedness = useSprayEffectStore((s) => s.setHandedness)
+
   // Local spacing computation for adaptive back buffer
   const { isReady, isComputing, progress, globalMean } = useLocalSpacing(pointCloudPositions)
 
@@ -173,6 +178,9 @@ function RayScribbleModePanel() {
       isScribbling={isScribbling}
       strokeCount={strokes.length}
       onClearStrokes={clearStrokes}
+      handedness={handedness}
+      setHandedness={setHandedness}
+      qualityTier="auto-detected"
     />
   )
 }

@@ -74,13 +74,42 @@ test.describe('Ray Scribble Mode', () => {
   test('should show empty band width slider', async ({ app, page }) => {
     await app.selectMode('RayScribble')
 
-    await expect(page.getByText(/Empty Band Width/i)).toBeVisible()
+    await expect(page.getByText(/Empty band/i)).toBeVisible()
   })
 
   test('should show surface band width slider', async ({ app, page }) => {
     await app.selectMode('RayScribble')
 
-    await expect(page.getByText(/Surface Band/i)).toBeVisible()
+    await expect(page.getByText(/Surface band/i)).toBeVisible()
+  })
+
+  test('should show spray hand toggle', async ({ app, page }) => {
+    await app.selectMode('RayScribble')
+
+    await expect(page.getByText(/Spray hand/i)).toBeVisible()
+  })
+
+  test('should have Left and Right handedness options', async ({ app, page }) => {
+    await app.selectMode('RayScribble')
+
+    await expect(page.getByRole('radio', { name: /Left/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: /Right/i })).toBeVisible()
+  })
+
+  test('should default to right-handed', async ({ app, page }) => {
+    await app.selectMode('RayScribble')
+
+    const rightButton = page.getByRole('radio', { name: /Right/i })
+    await expect(rightButton).toHaveClass(/border-purple-500/)
+  })
+
+  test('should toggle handedness to left', async ({ app, page }) => {
+    await app.selectMode('RayScribble')
+
+    await page.getByRole('radio', { name: /Left/i }).click()
+
+    const leftButton = page.getByRole('radio', { name: /Left/i })
+    await expect(leftButton).toHaveClass(/border-purple-500/)
   })
 })
 
