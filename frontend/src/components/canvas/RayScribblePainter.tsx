@@ -1,12 +1,12 @@
 // ABOUTME: Ray scribble painter for creating ray-carve constraints
 // ABOUTME: Captures scribble strokes and casts rays to find surface hits with spray paint effect
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useThree, useFrame, invalidate } from '@react-three/fiber'
+import { useCallback, useEffect, useRef } from 'react'
+import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { useProjectStore } from '../../stores/projectStore'
-import { useLabelStore, type RayCarveConstraint, type RayInfo } from '../../stores/labelStore'
+import { useLabelStore, type RayCarveConstraint } from '../../stores/labelStore'
 import { useRayScribbleStore, type RayInfo as StoreRayInfo } from '../../stores/rayScribbleStore'
 import { useSprayEffectStore } from '../../stores/sprayEffectStore'
 import { useSimplePointCloudRaycast } from '../../hooks/usePointCloudBVH'
@@ -32,8 +32,6 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions)
 
   const addConstraint = useLabelStore((s) => s.addConstraint)
-  // Subscribe directly to the constraints array for proper reactivity
-  const constraints = useLabelStore((s) => s.constraintsByProject[projectId] ?? [])
   const { createConstraint: syncConstraint } = useConstraintSync(projectId)
 
   const emptyBandWidth = useRayScribbleStore((s) => s.emptyBandWidth)
@@ -256,20 +254,8 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isActive, cancelStroke])
 
-  // Get ray carve constraints for this project
-  const rayCarves = useMemo(() =>
-    constraints.filter((c): c is RayCarveConstraint => c.type === 'ray_carve'),
-    [constraints]
-  )
-
-  // Force Three.js to re-render when constraints change
-  useEffect(() => {
-    if (rayCarves.length > 0) {
-      invalidate()
-    }
-  }, [rayCarves.length])
-
-  if (!isActive && rayCarves.length === 0) return null
+  // Only render when ray scribble mode is active
+  if (!isActive) return null
 
   const color = COLORS[activeLabel]
 
@@ -296,129 +282,7 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
           densityMultiplier={particleDensity}
         />
       )}
-
-      {/* Existing ray carve constraints (cone visualization for committed strokes) */}
-      {rayCarves.map((constraint) => (
-        <RayStrokeVisualization
-          key={constraint.id}
-          rays={constraint.rays}
-          emptyBandWidth={constraint.emptyBandWidth}
-          backBufferCoefficient={constraint.backBufferCoefficient}
-          backBufferWidth={constraint.backBufferWidth}
-          color={COLORS[constraint.sign]}
-          opacity={0.3}
-        />
-      ))}
     </group>
-  )
-}
-
-interface RayStrokeVisualizationProps {
-  rays: (StoreRayInfo | RayInfo)[]
-  emptyBandWidth: number
-  backBufferCoefficient: number
-  backBufferWidth: number
-  color: string
-  opacity: number
-}
-
-function RayStrokeVisualization({
-  rays,
-  emptyBandWidth,
-  backBufferCoefficient,
-  backBufferWidth,
-  color,
-  opacity,
-}: RayStrokeVisualizationProps) {
-  // Create geometry for visualizing rays as cones showing empty space
-  const coneGeometry = useMemo(() => {
-    if (rays.length === 0) return null
-
-    // For each ray, create a cone from origin to hit point - bufferZone
-    const positions: number[] = []
-    const indices: number[] = []
-
-    const CONE_SEGMENTS = 8
-
-    rays.forEach((ray) => {
-      const origin = new THREE.Vector3(...ray.origin)
-      const direction = new THREE.Vector3(...ray.direction).normalize()
-      const hitDistance = ray.hitDistance
-
-      // Compute the actual buffer zone for this ray
-      // This matches the sampling logic in the backend
-      const bufferZone = ray.localSpacing != null
-        ? ray.localSpacing * backBufferCoefficient
-        : backBufferWidth
-
-      // Cone end point is hit - bufferZone (where empty samples actually stop)
-      const endDistance = Math.max(0.1, hitDistance - bufferZone)
-      const endPoint = origin.clone().add(direction.clone().multiplyScalar(endDistance))
-
-      // Cone radius increases with distance (like a flashlight beam)
-      const coneAngle = 0.05 // radians
-      const endRadius = endDistance * Math.tan(coneAngle)
-
-      // Create basis vectors perpendicular to ray direction
-      const up = Math.abs(direction.y) < 0.9
-        ? new THREE.Vector3(0, 1, 0)
-        : new THREE.Vector3(1, 0, 0)
-      const right = new THREE.Vector3().crossVectors(direction, up).normalize()
-      const perpUp = new THREE.Vector3().crossVectors(right, direction).normalize()
-
-      const baseVertexIndex = positions.length / 3
-
-      // Add origin vertex (cone tip)
-      positions.push(origin.x, origin.y, origin.z)
-
-      // Add ring of vertices at end
-      for (let i = 0; i < CONE_SEGMENTS; i++) {
-        const angle = (i / CONE_SEGMENTS) * Math.PI * 2
-        const cos = Math.cos(angle)
-        const sin = Math.sin(angle)
-
-        const vertex = endPoint.clone()
-          .add(right.clone().multiplyScalar(cos * endRadius))
-          .add(perpUp.clone().multiplyScalar(sin * endRadius))
-
-        positions.push(vertex.x, vertex.y, vertex.z)
-      }
-
-      // Create triangles from tip to ring
-      for (let i = 0; i < CONE_SEGMENTS; i++) {
-        const nextI = (i + 1) % CONE_SEGMENTS
-        indices.push(
-          baseVertexIndex, // tip
-          baseVertexIndex + 1 + i, // current ring vertex
-          baseVertexIndex + 1 + nextI // next ring vertex
-        )
-      }
-    })
-
-    if (positions.length === 0) return null
-
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    geometry.setIndex(indices)
-    geometry.computeVertexNormals()
-    geometry.computeBoundingSphere()
-
-    return geometry
-  }, [rays, emptyBandWidth, backBufferCoefficient, backBufferWidth])
-
-  if (!coneGeometry) return null
-
-  return (
-    <mesh geometry={coneGeometry} frustumCulled={false} renderOrder={-1}>
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={opacity}
-        side={THREE.DoubleSide}
-        depthWrite={false}
-        depthTest={false}
-      />
-    </mesh>
   )
 }
 
