@@ -158,6 +158,8 @@ function RayScribbleModePanel() {
   // Spray effect settings
   const handedness = useSprayEffectStore((s) => s.handedness)
   const setHandedness = useSprayEffectStore((s) => s.setHandedness)
+  const particleDensity = useSprayEffectStore((s) => s.particleDensity)
+  const setParticleDensity = useSprayEffectStore((s) => s.setParticleDensity)
 
   // Local spacing computation for adaptive back buffer
   const { isReady, isComputing, progress, globalMean } = useLocalSpacing(pointCloudPositions)
@@ -180,6 +182,8 @@ function RayScribbleModePanel() {
       onClearStrokes={clearStrokes}
       handedness={handedness}
       setHandedness={setHandedness}
+      particleDensity={particleDensity}
+      setParticleDensity={setParticleDensity}
       qualityTier="auto-detected"
     />
   )

@@ -11,10 +11,12 @@ interface SprayEffectState {
   // Settings
   handedness: Handedness
   qualityOverride: QualityOverride
+  particleDensity: number // Multiplier for emission rate (0.1 to 3.0)
 
   // Actions
   setHandedness: (hand: Handedness) => void
   setQualityOverride: (tier: QualityOverride) => void
+  setParticleDensity: (density: number) => void
 }
 
 export const useSprayEffectStore = create<SprayEffectState>()(
@@ -23,10 +25,12 @@ export const useSprayEffectStore = create<SprayEffectState>()(
       // Default settings
       handedness: 'right',
       qualityOverride: 'auto',
+      particleDensity: 1.0,
 
       // Actions
       setHandedness: (handedness) => set({ handedness }),
       setQualityOverride: (qualityOverride) => set({ qualityOverride }),
+      setParticleDensity: (particleDensity) => set({ particleDensity }),
     }),
     {
       name: 'sdf-labeler-spray-effect',

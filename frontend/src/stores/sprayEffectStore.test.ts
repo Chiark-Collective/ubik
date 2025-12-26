@@ -10,6 +10,7 @@ describe('sprayEffectStore', () => {
     useSprayEffectStore.setState({
       handedness: 'right',
       qualityOverride: 'auto',
+      particleDensity: 1.0,
     })
   })
 
@@ -54,6 +55,27 @@ describe('sprayEffectStore', () => {
       useSprayEffectStore.getState().setQualityOverride('high')
       useSprayEffectStore.getState().setQualityOverride('auto')
       expect(useSprayEffectStore.getState().qualityOverride).toBe('auto')
+    })
+  })
+
+  describe('particleDensity', () => {
+    it('should initialize with 1.0 as default', () => {
+      expect(useSprayEffectStore.getState().particleDensity).toBe(1.0)
+    })
+
+    it('should update particle density', () => {
+      useSprayEffectStore.getState().setParticleDensity(2.0)
+      expect(useSprayEffectStore.getState().particleDensity).toBe(2.0)
+    })
+
+    it('should allow low density values', () => {
+      useSprayEffectStore.getState().setParticleDensity(0.1)
+      expect(useSprayEffectStore.getState().particleDensity).toBe(0.1)
+    })
+
+    it('should allow high density values', () => {
+      useSprayEffectStore.getState().setParticleDensity(3.0)
+      expect(useSprayEffectStore.getState().particleDensity).toBe(3.0)
     })
   })
 

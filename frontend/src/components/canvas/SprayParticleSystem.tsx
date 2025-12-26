@@ -11,6 +11,7 @@ interface SprayParticleSystemProps {
   targetPosition: React.MutableRefObject<THREE.Vector3 | null>
   labelColor: string
   tierConfig: TierConfig
+  densityMultiplier?: number
 }
 
 // Reusable vectors to avoid allocations in hot path
@@ -25,10 +26,12 @@ export function SprayParticleSystem({
   targetPosition,
   labelColor,
   tierConfig,
+  densityMultiplier = 1.0,
 }: SprayParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null)
 
-  const { maxParticles, emitRate, lifetime } = tierConfig
+  const { maxParticles, lifetime } = tierConfig
+  const emitRate = tierConfig.emitRate * densityMultiplier
 
   // Pre-allocated buffers
   const buffers = useMemo(() => ({

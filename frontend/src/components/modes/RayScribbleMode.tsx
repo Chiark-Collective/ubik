@@ -32,6 +32,8 @@ export interface RayScribbleModeProps {
   // Spray effect settings
   handedness: Handedness
   setHandedness: (hand: Handedness) => void
+  particleDensity: number
+  setParticleDensity: (density: number) => void
   qualityTier: string
 }
 
@@ -52,6 +54,8 @@ export function RayScribbleMode({
   onClearStrokes,
   handedness,
   setHandedness,
+  particleDensity,
+  setParticleDensity,
   qualityTier,
 }: RayScribbleModeProps) {
   return (
@@ -250,6 +254,33 @@ export function RayScribbleMode({
               Right
             </ToggleGroup.Item>
           </ToggleGroup.Root>
+        </div>
+
+        {/* Particle density slider */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1">
+              <label className="text-gray-400">Spray density</label>
+              <HelpTooltip content="Density of spray particles. Higher values create thicker spray." />
+            </div>
+            <span className="text-gray-300 tabular-nums">{particleDensity.toFixed(1)}×</span>
+          </div>
+          <Slider.Root
+            className="relative flex items-center select-none touch-none w-full h-5"
+            value={[particleDensity]}
+            onValueChange={([v]) => setParticleDensity(v)}
+            min={0.1}
+            max={3.0}
+            step={0.1}
+          >
+            <Slider.Track className="bg-gray-700 relative grow rounded-full h-[3px]">
+              <Slider.Range className="absolute bg-purple-500 rounded-full h-full" />
+            </Slider.Track>
+            <Slider.Thumb
+              className="block w-4 h-4 bg-white rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              aria-label="Particle density"
+            />
+          </Slider.Root>
         </div>
 
         {/* Quality tier indicator */}

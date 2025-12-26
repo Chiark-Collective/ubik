@@ -32,7 +32,8 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions)
 
   const addConstraint = useLabelStore((s) => s.addConstraint)
-  const constraints = useLabelStore((s) => s.getConstraints(projectId))
+  // Subscribe directly to the constraints array for proper reactivity
+  const constraints = useLabelStore((s) => s.constraintsByProject[projectId] ?? [])
   const { createConstraint: syncConstraint } = useConstraintSync(projectId)
 
   const emptyBandWidth = useRayScribbleStore((s) => s.emptyBandWidth)
@@ -51,6 +52,7 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
 
   // Spray effect settings
   const handedness = useSprayEffectStore((s) => s.handedness)
+  const particleDensity = useSprayEffectStore((s) => s.particleDensity)
   const { config: tierConfig } = useQualityTier()
 
   const { camera, raycaster, pointer, gl } = useThree()
@@ -283,6 +285,7 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
           targetPosition={currentHitPointRef}
           labelColor={color}
           tierConfig={tierConfig}
+          densityMultiplier={particleDensity}
         />
       )}
 
