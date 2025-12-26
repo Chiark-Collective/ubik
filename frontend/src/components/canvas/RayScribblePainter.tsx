@@ -398,13 +398,14 @@ function RayStrokeVisualization({
   if (!coneGeometry) return null
 
   return (
-    <mesh geometry={coneGeometry} frustumCulled={false}>
+    <mesh geometry={coneGeometry} frustumCulled={false} renderOrder={-1}>
       <meshBasicMaterial
         color={color}
         transparent
         opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
+        depthTest={false}
       />
     </mesh>
   )

@@ -1,7 +1,7 @@
 // ABOUTME: Right sidebar panel for label selection and constraint list
 // ABOUTME: Shows active label type and list of created constraints
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import * as ToggleGroup from '@radix-ui/react-toggle-group'
 import { TrashIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
@@ -276,6 +276,16 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
 
 export function LabelPanel() {
   const [collapsed, setCollapsed] = useState(false)
+
+  // Trigger canvas resize when panel collapses/expands
+  useEffect(() => {
+    // Small delay to let the DOM update first
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [collapsed])
+
   const activeLabel = useProjectStore((s) => s.activeLabel)
   const setActiveLabel = useProjectStore((s) => s.setActiveLabel)
   const mode = useProjectStore((s) => s.mode)
