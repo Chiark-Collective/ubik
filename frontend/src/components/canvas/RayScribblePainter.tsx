@@ -2,7 +2,7 @@
 // ABOUTME: Captures scribble strokes and casts rays to find surface hits with spray paint effect
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useThree, useFrame } from '@react-three/fiber'
+import { useThree, useFrame, invalidate } from '@react-three/fiber'
 import * as THREE from 'three'
 
 import { useProjectStore } from '../../stores/projectStore'
@@ -257,9 +257,17 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   }, [isActive, cancelStroke])
 
   // Get ray carve constraints for this project
-  const rayCarves = constraints.filter(
-    (c): c is RayCarveConstraint => c.type === 'ray_carve'
+  const rayCarves = useMemo(() =>
+    constraints.filter((c): c is RayCarveConstraint => c.type === 'ray_carve'),
+    [constraints]
   )
+
+  // Force Three.js to re-render when constraints change
+  useEffect(() => {
+    if (rayCarves.length > 0) {
+      invalidate()
+    }
+  }, [rayCarves.length])
 
   if (!isActive && rayCarves.length === 0) return null
 

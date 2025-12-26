@@ -21,6 +21,38 @@ const _right = new THREE.Vector3()
 const _up = new THREE.Vector3()
 const _tempVec = new THREE.Vector3()
 
+// Create a circular particle texture
+function createCircleTexture(): THREE.Texture {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  // Draw a soft circular gradient
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+  gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.8)')
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.3)')
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, size, size)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.needsUpdate = true
+  return texture
+}
+
+// Singleton texture to avoid recreating
+let circleTexture: THREE.Texture | null = null
+function getCircleTexture(): THREE.Texture {
+  if (!circleTexture) {
+    circleTexture = createCircleTexture()
+  }
+  return circleTexture
+}
+
 export function SprayParticleSystem({
   nozzlePosition,
   targetPosition,
@@ -59,13 +91,14 @@ export function SprayParticleSystem({
     return geo
   }, [buffers])
 
-  // Material for particles
+  // Material for particles with circular texture
   const material = useMemo(() => {
     return new THREE.PointsMaterial({
-      size: 0.015,
+      size: 0.02,
+      map: getCircleTexture(),
       vertexColors: true,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.9,
       sizeAttenuation: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,

@@ -270,7 +270,7 @@ export function RayScribbleMode({
             value={[particleDensity]}
             onValueChange={([v]) => setParticleDensity(v)}
             min={0.1}
-            max={3.0}
+            max={20}
             step={0.1}
           >
             <Slider.Track className="bg-gray-700 relative grow rounded-full h-[3px]">
