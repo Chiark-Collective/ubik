@@ -390,6 +390,7 @@ function RayStrokeVisualization({
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
     geometry.setIndex(indices)
     geometry.computeVertexNormals()
+    geometry.computeBoundingSphere()
 
     return geometry
   }, [rays, emptyBandWidth, backBufferCoefficient, backBufferWidth])
@@ -397,7 +398,7 @@ function RayStrokeVisualization({
   if (!coneGeometry) return null
 
   return (
-    <mesh geometry={coneGeometry}>
+    <mesh geometry={coneGeometry} frustumCulled={false}>
       <meshBasicMaterial
         color={color}
         transparent
