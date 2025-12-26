@@ -2,8 +2,9 @@
 // ABOUTME: Shows active label type and list of created constraints
 
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as ToggleGroup from '@radix-ui/react-toggle-group'
+import * as Dialog from '@radix-ui/react-dialog'
 import { TrashIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
 
 import { useProjectStore, type LabelType } from '../../stores/projectStore'
@@ -25,7 +26,7 @@ import { SeedMode } from '../modes/SeedMode'
 import { MLImportMode } from '../modes/MLImportMode'
 import { RayScribbleMode } from '../modes/RayScribbleMode'
 import { ClickPocketMode } from '../modes/ClickPocketMode'
-import { generateSamples, exportParquet } from '../../services/api'
+import { generateSamples, exportParquet, clearConstraints as clearConstraintsApi } from '../../services/api'
 
 const labelOptions: { value: LabelType; label: string; description: string; color: string }[] = [
   {
@@ -433,9 +434,17 @@ export function LabelPanel() {
 
         {/* Constraints list */}
         <div className="p-4">
-          <h3 className="text-sm font-medium mb-3">
-            Constraints ({constraints.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium">
+              Constraints ({constraints.length})
+            </h3>
+            {currentProjectId && constraints.length > 0 && (
+              <ClearConstraintsButton
+                projectId={currentProjectId}
+                constraintCount={constraints.length}
+              />
+            )}
+          </div>
 
           {constraints.length === 0 ? (
             <p className="text-sm text-gray-500">
@@ -503,6 +512,69 @@ function ConstraintItem({ constraint, onDelete }: ConstraintItemProps) {
         <TrashIcon className="w-4 h-4" />
       </button>
     </li>
+  )
+}
+
+interface ClearConstraintsButtonProps {
+  projectId: string
+  constraintCount: number
+}
+
+function ClearConstraintsButton({ projectId, constraintCount }: ClearConstraintsButtonProps) {
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const clearLocalConstraints = useLabelStore((s) => s.clearConstraints)
+
+  const clearMutation = useMutation({
+    mutationFn: () => clearConstraintsApi(projectId),
+    onSuccess: () => {
+      clearLocalConstraints(projectId)
+      queryClient.invalidateQueries({ queryKey: ['constraints', projectId] })
+      toast.success('Constraints cleared', 'All constraints have been removed')
+      setOpen(false)
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to clear constraints', error.message)
+    },
+  })
+
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          title="Clear all constraints"
+        >
+          Clear All
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 p-6 bg-gray-900 rounded-lg border border-gray-700 shadow-xl">
+          <Dialog.Title className="text-lg font-medium mb-2">
+            Clear All Constraints?
+          </Dialog.Title>
+          <Dialog.Description className="text-sm text-gray-400 mb-4">
+            This will permanently delete all {constraintCount} constraint{constraintCount !== 1 ? 's' : ''}.
+            This action cannot be undone.
+          </Dialog.Description>
+          <div className="flex justify-end gap-2">
+            <Dialog.Close asChild>
+              <button className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+                Cancel
+              </button>
+            </Dialog.Close>
+            <button
+              onClick={() => clearMutation.mutate()}
+              disabled={clearMutation.isPending}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {clearMutation.isPending ? 'Clearing...' : 'Clear All'}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 

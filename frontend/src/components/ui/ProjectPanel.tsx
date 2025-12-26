@@ -19,6 +19,7 @@ import {
   listProjects,
   createProject,
   deleteProject,
+  deleteAllProjects,
   uploadPointCloud,
   listScenarios,
   loadScenario,
@@ -78,16 +79,21 @@ export function ProjectPanel() {
         ) : projects.length === 0 ? (
           <div className="p-4 text-sm text-gray-500">No projects yet</div>
         ) : (
-          <ul className="py-2">
-            {projects.map((project) => (
-              <ProjectItem
-                key={project.id}
-                project={project}
-                isSelected={project.id === currentProjectId}
-                onSelect={() => setCurrentProject(project.id)}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className="py-2">
+              {projects.map((project) => (
+                <ProjectItem
+                  key={project.id}
+                  project={project}
+                  isSelected={project.id === currentProjectId}
+                  onSelect={() => setCurrentProject(project.id)}
+                />
+              ))}
+            </ul>
+            <div className="px-4 pb-2">
+              <DeleteAllProjectsButton projectCount={projects.length} />
+            </div>
+          </>
         )}
       </div>
 
@@ -491,5 +497,68 @@ function ScenarioBrowser({ projectId }: ScenarioBrowserProps) {
         <p className="text-xs text-blue-400 mt-2">Loading scenario...</p>
       )}
     </div>
+  )
+}
+
+interface DeleteAllProjectsButtonProps {
+  projectCount: number
+}
+
+function DeleteAllProjectsButton({ projectCount }: DeleteAllProjectsButtonProps) {
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const clearAllProjects = useProjectStore((s) => s.clearAllProjects)
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteAllProjects,
+    onSuccess: () => {
+      clearAllProjects()
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      toast.info('All projects deleted')
+      setOpen(false)
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to delete projects', error.message)
+    },
+  })
+
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          className="w-full text-xs text-red-400 hover:text-red-300 py-1 transition-colors"
+        >
+          Delete All Projects
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 p-6 bg-gray-900 rounded-lg border border-gray-700 shadow-xl">
+          <Dialog.Title className="text-lg font-medium mb-2 text-red-400">
+            Delete All Projects?
+          </Dialog.Title>
+          <Dialog.Description className="text-sm text-gray-400 mb-4">
+            This will permanently delete all {projectCount} project{projectCount !== 1 ? 's' : ''} and their data.
+            <span className="block mt-2 font-semibold text-red-400">
+              This action cannot be undone.
+            </span>
+          </Dialog.Description>
+          <div className="flex justify-end gap-2">
+            <Dialog.Close asChild>
+              <button className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+                Cancel
+              </button>
+            </Dialog.Close>
+            <button
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete All'}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

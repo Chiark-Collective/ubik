@@ -73,6 +73,14 @@ class ConstraintService:
             return True
         return False
 
+    def clear(self, project_id: str) -> None:
+        """Clear all constraints for a project."""
+        from sdf_labeler_api.config import settings
+
+        path = self._constraints_path(project_id, settings.data_dir)
+        if path.exists():
+            path.unlink()
+
     def _save(self, project_id: str, constraints: ConstraintSet, data_dir: Path) -> None:
         """Save constraints to disk."""
         path = self._constraints_path(project_id, data_dir)

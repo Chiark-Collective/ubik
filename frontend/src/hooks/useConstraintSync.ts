@@ -1,10 +1,96 @@
 // ABOUTME: Hook for syncing constraints with the backend API
-// ABOUTME: Provides mutations for creating, updating, and deleting constraints
+// ABOUTME: Provides mutations for creating, updating, and deleting constraints, and loads constraints on project selection
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLabelStore, type Constraint } from '../stores/labelStore'
+import { getConstraints, type BackendConstraint } from '../services/api'
 
 const API_BASE = '/v1'
+
+// Transform backend snake_case to frontend camelCase
+function transformConstraint(backend: BackendConstraint): Constraint {
+  const base = {
+    id: backend.id,
+    type: backend.type,
+    name: backend.name,
+    sign: backend.sign,
+    weight: backend.weight,
+    createdAt: backend.created_at,
+  }
+
+  switch (backend.type) {
+    case 'box':
+      return {
+        ...base,
+        type: 'box',
+        center: backend.center,
+        halfExtents: backend.half_extents,
+      } as Constraint
+
+    case 'sphere':
+      return {
+        ...base,
+        type: 'sphere',
+        center: backend.center,
+        radius: backend.radius,
+      } as Constraint
+
+    case 'halfspace':
+      return {
+        ...base,
+        type: 'halfspace',
+        point: backend.point,
+        normal: backend.normal,
+      } as Constraint
+
+    case 'cylinder':
+      return {
+        ...base,
+        type: 'cylinder',
+        center: backend.center,
+        radius: backend.radius,
+        height: backend.height,
+        axis: backend.axis,
+      } as Constraint
+
+    case 'brush_stroke':
+      return {
+        ...base,
+        type: 'brush_stroke',
+        strokePoints: backend.stroke_points,
+        radius: backend.radius,
+      } as Constraint
+
+    case 'ray_carve': {
+      const rayCarve = backend as import('../services/api').RayCarveConstraint
+      return {
+        ...base,
+        type: 'ray_carve',
+        rays: rayCarve.rays.map((r) => ({
+          origin: r.origin,
+          direction: r.direction,
+          hitDistance: r.hit_distance,
+          surfaceNormal: r.surface_normal,
+          hitPointIndex: r.hit_point_index,
+          localSpacing: r.local_spacing,
+        })),
+        emptyBandWidth: rayCarve.empty_band_width,
+        surfaceBandWidth: rayCarve.surface_band_width,
+        backBufferWidth: rayCarve.back_buffer_width,
+        backBufferCoefficient: rayCarve.back_buffer_coefficient,
+      } as Constraint
+    }
+
+    default:
+      // For other types (seed_propagation, ml_import, pocket, slice_selection),
+      // pass through with basic transforms
+      return {
+        ...base,
+        ...backend,
+      } as Constraint
+  }
+}
 
 interface RayInfoRequest {
   origin: [number, number, number]
@@ -72,6 +158,22 @@ async function deleteConstraintApi(
 export function useConstraintSync(projectId: string | null) {
   const queryClient = useQueryClient()
   const removeConstraintFromStore = useLabelStore((s) => s.removeConstraint)
+  const setConstraints = useLabelStore((s) => s.setConstraints)
+
+  // Fetch constraints from backend when projectId changes
+  const { data: constraintsData, isLoading: isLoadingConstraints } = useQuery({
+    queryKey: ['constraints', projectId],
+    queryFn: () => (projectId ? getConstraints(projectId) : null),
+    enabled: !!projectId,
+  })
+
+  // Sync fetched constraints to store
+  useEffect(() => {
+    if (projectId && constraintsData?.constraints) {
+      const transformed = constraintsData.constraints.map(transformConstraint)
+      setConstraints(projectId, transformed)
+    }
+  }, [projectId, constraintsData, setConstraints])
 
   const createMutation = useMutation({
     mutationFn: async (constraint: Constraint) => {
@@ -150,5 +252,6 @@ export function useConstraintSync(projectId: string | null) {
     deleteConstraint: deleteMutation.mutate,
     isCreating: createMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isLoadingConstraints,
   }
 }

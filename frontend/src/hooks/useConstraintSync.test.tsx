@@ -35,6 +35,12 @@ describe('useConstraintSync', () => {
       redoStack: [],
       maxHistory: 50,
     })
+
+    // Mock the initial constraints loading query (runs on mount)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ constraints: [], total: 0 }),
+    })
   })
 
   afterEach(() => {
@@ -92,7 +98,7 @@ describe('useConstraintSync', () => {
       })
 
       // Verify body
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body)
       expect(callBody.type).toBe('box')
       expect(callBody.center).toEqual([1, 2, 3])
       expect(callBody.half_extents).toEqual([0.5, 0.5, 0.5])
@@ -242,7 +248,7 @@ describe('useConstraintSync', () => {
         expect(mockFetch).toHaveBeenCalled()
       })
 
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body)
       expect(callBody.type).toBe('sphere')
       expect(callBody.center).toEqual([1, 2, 3])
       expect(callBody.radius).toBe(0.5)
@@ -272,7 +278,7 @@ describe('useConstraintSync', () => {
         expect(mockFetch).toHaveBeenCalled()
       })
 
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body)
       expect(callBody.type).toBe('halfspace')
       expect(callBody.point).toEqual([0, 0, 0])
       expect(callBody.normal).toEqual([0, 0, 1])
@@ -304,7 +310,7 @@ describe('useConstraintSync', () => {
         expect(mockFetch).toHaveBeenCalled()
       })
 
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body)
       expect(callBody.type).toBe('cylinder')
       expect(callBody.center).toEqual([1, 2, 3])
       expect(callBody.radius).toBe(0.5)
@@ -336,7 +342,7 @@ describe('useConstraintSync', () => {
         expect(mockFetch).toHaveBeenCalled()
       })
 
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body)
       expect(callBody.type).toBe('brush_stroke')
       expect(callBody.stroke_points).toEqual([[0, 0, 0], [1, 0, 0], [2, 0, 0]])
       expect(callBody.radius).toBe(0.1)

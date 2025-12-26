@@ -245,6 +245,17 @@ async def delete_constraint(project_id: str, constraint_id: str):
     return {"status": "deleted", "constraint_id": constraint_id}
 
 
+@app.delete("/v1/projects/{project_id}/constraints")
+async def clear_constraints(project_id: str):
+    """Delete all constraints for a project."""
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    constraint_service.clear(project_id)
+    return {"status": "cleared", "project_id": project_id}
+
+
 # =============================================================================
 # Pocket Detection
 # =============================================================================

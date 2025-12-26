@@ -149,6 +149,7 @@ interface LabelState {
   canRedo: () => boolean
 
   clearConstraints: (projectId: string) => void
+  setConstraints: (projectId: string, constraints: Constraint[]) => void
 }
 
 export const useLabelStore = create<LabelState>((set, get) => ({
@@ -321,6 +322,17 @@ export const useLabelStore = create<LabelState>((set, get) => ({
       },
       undoStack: [],
       redoStack: [],
+    }))
+  },
+
+  setConstraints: (projectId, constraints) => {
+    // Bulk set constraints without affecting undo/redo (used for loading from backend)
+    set((state) => ({
+      constraintsByProject: {
+        ...state.constraintsByProject,
+        [projectId]: constraints,
+      },
+      // Don't modify undo/redo - this is a load, not a user action
     }))
   },
 }))

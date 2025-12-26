@@ -354,4 +354,86 @@ describe('labelStore', () => {
       expect(useLabelStore.getState().redoStack).toHaveLength(0)
     })
   })
+
+  describe('setConstraints', () => {
+    it('should bulk set constraints for a project', () => {
+      const constraints: BoxConstraint[] = [
+        {
+          id: 'box-1',
+          type: 'box',
+          sign: 'solid',
+          weight: 1.0,
+          createdAt: Date.now(),
+          center: [0, 0, 0],
+          halfExtents: [0.1, 0.1, 0.1],
+        },
+        {
+          id: 'box-2',
+          type: 'box',
+          sign: 'empty',
+          weight: 1.0,
+          createdAt: Date.now(),
+          center: [1, 0, 0],
+          halfExtents: [0.1, 0.1, 0.1],
+        },
+      ]
+
+      useLabelStore.getState().setConstraints(projectId, constraints)
+
+      expect(useLabelStore.getState().getConstraints(projectId)).toHaveLength(2)
+      expect(useLabelStore.getState().getConstraints(projectId)[0].id).toBe('box-1')
+      expect(useLabelStore.getState().getConstraints(projectId)[1].id).toBe('box-2')
+    })
+
+    it('should replace existing constraints', () => {
+      const oldBox: BoxConstraint = {
+        id: 'old-box',
+        type: 'box',
+        sign: 'solid',
+        weight: 1.0,
+        createdAt: Date.now(),
+        center: [0, 0, 0],
+        halfExtents: [0.1, 0.1, 0.1],
+      }
+
+      useLabelStore.getState().addConstraint(projectId, oldBox)
+
+      const newConstraints: BoxConstraint[] = [
+        {
+          id: 'new-box',
+          type: 'box',
+          sign: 'empty',
+          weight: 1.0,
+          createdAt: Date.now(),
+          center: [1, 1, 1],
+          halfExtents: [0.2, 0.2, 0.2],
+        },
+      ]
+
+      useLabelStore.getState().setConstraints(projectId, newConstraints)
+
+      expect(useLabelStore.getState().getConstraints(projectId)).toHaveLength(1)
+      expect(useLabelStore.getState().getConstraints(projectId)[0].id).toBe('new-box')
+    })
+
+    it('should not affect undo/redo stacks', () => {
+      const constraints: BoxConstraint[] = [
+        {
+          id: 'box-1',
+          type: 'box',
+          sign: 'solid',
+          weight: 1.0,
+          createdAt: Date.now(),
+          center: [0, 0, 0],
+          halfExtents: [0.1, 0.1, 0.1],
+        },
+      ]
+
+      useLabelStore.getState().setConstraints(projectId, constraints)
+
+      // setConstraints should not populate undo stack
+      expect(useLabelStore.getState().undoStack).toHaveLength(0)
+      expect(useLabelStore.getState().redoStack).toHaveLength(0)
+    })
+  })
 })

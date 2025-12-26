@@ -41,6 +41,7 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
   const useAdaptiveBackBuffer = useRayScribbleStore((s) => s.useAdaptiveBackBuffer)
   const backBufferCoefficient = useRayScribbleStore((s) => s.backBufferCoefficient)
   const isScribbling = useRayScribbleStore((s) => s.isScribbling)
+  const currentStrokeRays = useRayScribbleStore((s) => s.currentStrokeRays)
   const startStroke = useRayScribbleStore((s) => s.startStroke)
   const addRayToStroke = useRayScribbleStore((s) => s.addRayToStroke)
   const endStroke = useRayScribbleStore((s) => s.endStroke)
@@ -290,7 +291,18 @@ export function RayScribblePainter({ projectId }: RayScribblePainterProps) {
         />
       )}
 
-      {/* Ray carve constraint cones */}
+      {/* Preview cone for current stroke (during active spraying) */}
+      {isActive && isScribbling && currentStrokeRays.length > 0 && (
+        <RayStrokeCones
+          rays={currentStrokeRays}
+          backBufferCoefficient={backBufferCoefficient}
+          backBufferWidth={backBufferWidth}
+          color={color}
+          opacity={0.5}
+        />
+      )}
+
+      {/* Ray carve constraint cones (finalized) */}
       {rayCarves.map((constraint) => (
         <RayStrokeCones
           key={constraint.id}
@@ -309,6 +321,7 @@ interface RayStrokeConesProps {
   backBufferCoefficient: number
   backBufferWidth: number
   color: string
+  opacity?: number
 }
 
 function RayStrokeCones({
@@ -316,6 +329,7 @@ function RayStrokeCones({
   backBufferCoefficient,
   backBufferWidth,
   color,
+  opacity = 0.3,
 }: RayStrokeConesProps) {
   const geometry = useMemo(() => {
     if (rays.length === 0) return null
@@ -383,7 +397,7 @@ function RayStrokeCones({
       <meshBasicMaterial
         color={color}
         transparent
-        opacity={0.3}
+        opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
       />

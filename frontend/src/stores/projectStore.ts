@@ -84,6 +84,8 @@ interface ProjectState {
   setSliceThickness: (thickness: number) => void
 
   setShowSamples: (show: boolean) => void
+
+  clearAllProjects: () => void
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -164,6 +166,14 @@ export const useProjectStore = create<ProjectState>()(
       setSliceThickness: (thickness) => set({ sliceThickness: thickness }),
 
       setShowSamples: (show) => set({ showSamples: show }),
+
+      clearAllProjects: () =>
+        set({
+          projects: [],
+          currentProjectId: null,
+          pointCloudLoaded: false,
+          pointCloudPositions: null,
+        }),
     }),
     {
       name: 'sdf-labeler-project-store',

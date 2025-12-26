@@ -348,6 +348,95 @@ export async function loadScenario(
   })
 }
 
+// Constraint types (matching backend models)
+export interface RayInfo {
+  origin: [number, number, number]
+  direction: [number, number, number]
+  hit_distance: number
+  surface_normal?: [number, number, number]
+  hit_point_index?: number
+  local_spacing?: number
+}
+
+export interface ConstraintBase {
+  id: string
+  type: string
+  name?: string
+  sign: 'solid' | 'empty' | 'surface'
+  weight: number
+  created_at: number
+}
+
+export interface BoxConstraint extends ConstraintBase {
+  type: 'box'
+  center: [number, number, number]
+  half_extents: [number, number, number]
+}
+
+export interface SphereConstraint extends ConstraintBase {
+  type: 'sphere'
+  center: [number, number, number]
+  radius: number
+}
+
+export interface HalfspaceConstraint extends ConstraintBase {
+  type: 'halfspace'
+  point: [number, number, number]
+  normal: [number, number, number]
+}
+
+export interface CylinderConstraint extends ConstraintBase {
+  type: 'cylinder'
+  center: [number, number, number]
+  radius: number
+  height: number
+  axis: [number, number, number]
+}
+
+export interface BrushStrokeConstraint extends ConstraintBase {
+  type: 'brush_stroke'
+  stroke_points: [number, number, number][]
+  radius: number
+}
+
+export interface RayCarveConstraint extends ConstraintBase {
+  type: 'ray_carve'
+  rays: RayInfo[]
+  empty_band_width: number
+  surface_band_width: number
+  back_buffer_width: number
+  back_buffer_coefficient: number
+}
+
+export type BackendConstraint =
+  | BoxConstraint
+  | SphereConstraint
+  | HalfspaceConstraint
+  | CylinderConstraint
+  | BrushStrokeConstraint
+  | RayCarveConstraint
+  | (ConstraintBase & Record<string, unknown>)
+
+export interface ConstraintsResponse {
+  constraints: BackendConstraint[]
+  total: number
+}
+
+// Constraint endpoints
+export async function getConstraints(projectId: string): Promise<ConstraintsResponse> {
+  return request(`/projects/${projectId}/constraints`)
+}
+
+export async function clearConstraints(projectId: string): Promise<void> {
+  await request(`/projects/${projectId}/constraints`, { method: 'DELETE' })
+}
+
+// Utility to delete all projects
+export async function deleteAllProjects(): Promise<void> {
+  const { projects } = await listProjects()
+  await Promise.all(projects.map((p) => deleteProject(p.id)))
+}
+
 // Health check
 export async function healthCheck(): Promise<{ status: string; version: string }> {
   const response = await fetch('/health')
