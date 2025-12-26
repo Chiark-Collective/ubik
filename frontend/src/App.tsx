@@ -14,7 +14,6 @@ import { SelectionVolume } from './components/canvas/SelectionVolume'
 import { PrimitivePlacer } from './components/canvas/PrimitivePlacer'
 import { BrushPainter } from './components/canvas/BrushPainter'
 import { RayScribblePainter } from './components/canvas/RayScribblePainter'
-import { RayCarveVisualization } from './components/canvas/RayCarveVisualization'
 import { PocketDetector } from './components/canvas/PocketDetector'
 import { SeedPlacer } from './components/canvas/SeedPlacer'
 import { SampleViewer } from './components/canvas/SampleViewer'
@@ -78,9 +77,6 @@ function Scene() {
 
       {/* Ray scribble painter (when in ray_scribble mode) */}
       {projectId && <RayScribblePainter projectId={projectId} />}
-
-      {/* Ray carve constraint visualization (always visible, separate from painter) */}
-      {projectId && <RayCarveVisualization projectId={projectId} />}
 
       {/* Pocket detector (when in click_pocket mode) */}
       {projectId && <PocketDetector projectId={projectId} />}
