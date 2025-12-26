@@ -1,7 +1,7 @@
 // ABOUTME: Hook for syncing constraints with the backend API
 // ABOUTME: Provides mutations for creating, updating, and deleting constraints, and loads constraints on project selection
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLabelStore, type Constraint } from '../stores/labelStore'
 import { getConstraints, type BackendConstraint } from '../services/api'
@@ -160,18 +160,29 @@ export function useConstraintSync(projectId: string | null) {
   const removeConstraintFromStore = useLabelStore((s) => s.removeConstraint)
   const setConstraints = useLabelStore((s) => s.setConstraints)
 
+  // Track which projects have been initially loaded to avoid overwriting optimistic updates
+  const loadedProjectsRef = useRef<Set<string>>(new Set())
+
   // Fetch constraints from backend when projectId changes
   const { data: constraintsData, isLoading: isLoadingConstraints } = useQuery({
     queryKey: ['constraints', projectId],
     queryFn: () => (projectId ? getConstraints(projectId) : null),
     enabled: !!projectId,
+    // Disable automatic refetching to prevent race conditions with optimistic updates
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
-  // Sync fetched constraints to store
+  // Sync fetched constraints to store only on initial load for each project
   useEffect(() => {
     if (projectId && constraintsData?.constraints) {
-      const transformed = constraintsData.constraints.map(transformConstraint)
-      setConstraints(projectId, transformed)
+      // Only sync if we haven't loaded this project's constraints yet
+      if (!loadedProjectsRef.current.has(projectId)) {
+        loadedProjectsRef.current.add(projectId)
+        const transformed = constraintsData.constraints.map(transformConstraint)
+        setConstraints(projectId, transformed)
+      }
     }
   }, [projectId, constraintsData, setConstraints])
 
@@ -223,7 +234,8 @@ export function useConstraintSync(projectId: string | null) {
     },
     onSuccess: () => {
       // Constraint already added to store optimistically
-      queryClient.invalidateQueries({ queryKey: ['projects', projectId] })
+      // Invalidate constraints query so it refetches with the new constraint from backend
+      queryClient.invalidateQueries({ queryKey: ['constraints', projectId] })
     },
     onError: (error, constraint) => {
       // Remove from store on failure
@@ -240,7 +252,8 @@ export function useConstraintSync(projectId: string | null) {
       return deleteConstraintApi(projectId, constraintId)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', projectId] })
+      // Invalidate constraints query so it refetches without the deleted constraint
+      queryClient.invalidateQueries({ queryKey: ['constraints', projectId] })
     },
     onError: (error) => {
       console.error('Failed to delete constraint:', error)
