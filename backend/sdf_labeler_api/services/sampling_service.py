@@ -522,7 +522,7 @@ class SamplingService:
                             x=float(point[0]),
                             y=float(point[1]),
                             z=float(point[2]),
-                            phi=buffer_zone,  # Positive = outside, at least buffer_zone away
+                            phi=hit_dist - t,  # Signed distance: positive = outside surface
                             nx=float(direction[0]),
                             ny=float(direction[1]),
                             nz=float(direction[2]),

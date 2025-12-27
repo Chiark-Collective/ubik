@@ -209,7 +209,11 @@ class TestRayCarveAdaptiveBackBuffer:
         assert len(empty_samples) > 0
 
         # All empty samples should be along the ray (x between 0 and 0.9)
+        # Ray is along x-axis from origin, hits at x=1.0, empty_band_width=0.1
+        # So t ranges from 0 to 0.9, and phi = hit_dist - t = 1.0 - t
         for sample in empty_samples:
             assert 0 <= sample.x <= (1.0 - 0.1)  # Before empty_band_width
             assert sample.is_free is True
-            assert sample.phi == 0.1  # empty_band_width
+            # phi should be actual signed distance: hit_dist (1.0) - t (sample.x)
+            expected_phi = 1.0 - sample.x
+            assert sample.phi == pytest.approx(expected_phi, abs=1e-6)
