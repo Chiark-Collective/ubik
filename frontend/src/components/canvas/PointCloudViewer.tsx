@@ -39,6 +39,12 @@ export function PointCloudViewer({ projectId }: PointCloudViewerProps) {
   const [loadedTiles, setLoadedTiles] = useState<Map<string, TileData>>(new Map())
   const [visibleNodes, setVisibleNodes] = useState<Set<string>>(new Set())
 
+  // Clear loaded tiles when metadata changes (new scenario/point cloud)
+  useEffect(() => {
+    setLoadedTiles(new Map())
+    setVisibleNodes(new Set())
+  }, [metadata])
+
   // Update total point count when metadata loads
   useEffect(() => {
     if (metadata) {
