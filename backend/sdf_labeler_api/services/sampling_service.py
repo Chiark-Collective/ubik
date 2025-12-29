@@ -488,22 +488,63 @@ class SamplingService:
         For each ray:
         1. Sample EMPTY points uniformly along ray from origin to (hit - empty_band)
         2. Sample SURFACE points in band around hit point
+
+        Uses outlier detection to prevent rays that pass through thin surface gaps
+        from bleeding through to the other side.
         """
         print(f"[DEBUG] _sample_ray_carve called with {len(constraint.rays)} rays, coeff={constraint.back_buffer_coefficient}", flush=True)
         samples = []
 
+        # Pre-compute ray data for outlier detection
+        ray_data = []
         for ray in constraint.rays:
             origin = np.array(ray.origin)
             direction = np.array(ray.direction)
             direction = direction / np.linalg.norm(direction)
-            hit_dist = ray.hit_distance
+            hit_point = origin + direction * ray.hit_distance
+            ray_data.append({
+                'origin': origin,
+                'direction': direction,
+                'hit_distance': ray.hit_distance,
+                'hit_point': hit_point,
+                'local_spacing': ray.local_spacing,
+                'surface_normal': ray.surface_normal,
+            })
+
+        # Detect outliers: rays that pass through gaps and hit back faces
+        effective_hit_distances = []
+        for i, ray in enumerate(ray_data):
+            effective_dist = ray['hit_distance']
+
+            for j, other in enumerate(ray_data):
+                if i == j:
+                    continue
+
+                # Check if rays have similar directions (within ~18 degrees)
+                dir_dot = np.dot(ray['direction'], other['direction'])
+                if dir_dot > 0.95:
+                    # Project this ray's hit point onto the other ray's direction
+                    to_hit = ray['hit_point'] - other['origin']
+                    proj_dist = np.dot(to_hit, other['direction'])
+
+                    # If this ray extends significantly past where a nearby ray hit,
+                    # it likely passed through a gap - clamp to the other ray's hit distance
+                    if proj_dist > other['hit_distance'] * 1.1:
+                        effective_dist = min(effective_dist, other['hit_distance'])
+
+            effective_hit_distances.append(effective_dist)
+
+        for idx, ray in enumerate(ray_data):
+            origin = ray['origin']
+            direction = ray['direction']
+            hit_dist = effective_hit_distances[idx]  # Use clamped distance
 
             # Compute the "impenetrable buffer" zone size
             # This is the zone before the hit where we don't sample empty points
             # Higher coefficient = larger buffer = more protection from bleed-through
-            if ray.local_spacing is not None:
-                buffer_zone = ray.local_spacing * constraint.back_buffer_coefficient
-                print(f"[DEBUG] Impenetrable buffer: local_spacing={ray.local_spacing:.4f} × coeff={constraint.back_buffer_coefficient} = {buffer_zone:.4f}", flush=True)
+            if ray['local_spacing'] is not None:
+                buffer_zone = ray['local_spacing'] * constraint.back_buffer_coefficient
+                print(f"[DEBUG] Impenetrable buffer: local_spacing={ray['local_spacing']:.4f} × coeff={constraint.back_buffer_coefficient} = {buffer_zone:.4f}", flush=True)
             else:
                 buffer_zone = constraint.back_buffer_width
                 print(f"[DEBUG] Fixed buffer: {buffer_zone:.4f} (no local_spacing)", flush=True)
@@ -541,11 +582,11 @@ class SamplingService:
                     hit_dist,  # Never sample past the hit point
                 )
                 point = origin + t * direction
-                phi = t - hit_dist  # Signed distance from surface (always <= 0 now)
+                phi = 0.0  # Surface samples are on the zero level set
 
                 # Use surface normal if available, otherwise use ray direction
-                if ray.surface_normal:
-                    nx, ny, nz = ray.surface_normal
+                if ray['surface_normal']:
+                    nx, ny, nz = ray['surface_normal']
                 else:
                     nx, ny, nz = -direction[0], -direction[1], -direction[2]
 
@@ -560,7 +601,7 @@ class SamplingService:
                         nz=float(nz),
                         weight=constraint.weight,
                         source="ray_carve_surface",
-                        is_surface=abs(phi) < 0.01,
+                        is_surface=True,  # Surface samples are always on the surface
                         is_free=False,
                     )
                 )

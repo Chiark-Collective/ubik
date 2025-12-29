@@ -334,21 +334,53 @@ function RayStrokeCones({
   const geometry = useMemo(() => {
     if (rays.length === 0) return null
 
-    const positions: number[] = []
-    const indices: number[] = []
-    const CONE_SEGMENTS = 8
-
-    rays.forEach((ray) => {
+    // Pre-compute all hit points and effective end distances to detect outliers
+    // This prevents rays that pass through thin surface gaps from bleeding through
+    const rayData = rays.map((ray) => {
       const origin = new THREE.Vector3(...ray.origin)
       const direction = new THREE.Vector3(...ray.direction).normalize()
-      const hitDistance = ray.hitDistance
-
+      const hitPoint = origin.clone().add(direction.clone().multiplyScalar(ray.hitDistance))
       const bufferZone =
         ray.localSpacing != null
           ? ray.localSpacing * backBufferCoefficient
           : backBufferWidth
+      return { origin, direction, hitDistance: ray.hitDistance, hitPoint, bufferZone }
+    })
 
-      const endDistance = Math.max(0.1, hitDistance - bufferZone)
+    const positions: number[] = []
+    const indices: number[] = []
+    const CONE_SEGMENTS = 8
+
+    rayData.forEach((ray, rayIndex) => {
+      const { origin, direction, hitDistance, hitPoint, bufferZone } = ray
+
+      // Check if this ray's hit point is an outlier by comparing against nearby rays
+      // If any nearby ray has a much shorter hit distance, this ray likely hit a back face
+      let effectiveHitDistance = hitDistance
+
+      for (let j = 0; j < rayData.length; j++) {
+        if (j === rayIndex) continue
+
+        const other = rayData[j]
+        // Check if rays are close (similar direction = coming from similar viewpoint)
+        const dirDot = direction.dot(other.direction)
+        if (dirDot > 0.95) { // Similar direction (within ~18 degrees)
+          // Project this ray's hit point onto the other ray's direction
+          // to see if we've gone past where the other ray hit
+          const toHit = hitPoint.clone().sub(other.origin)
+          const projDist = toHit.dot(other.direction)
+
+          // If this ray extends significantly past where a nearby ray hit,
+          // clamp it to that distance (with some tolerance)
+          if (projDist > other.hitDistance * 1.1) {
+            // This ray likely passed through a gap - clamp to the other ray's hit distance
+            const clampedDist = other.hitDistance
+            effectiveHitDistance = Math.min(effectiveHitDistance, clampedDist)
+          }
+        }
+      }
+
+      const endDistance = Math.max(0.1, effectiveHitDistance - bufferZone)
       const endPoint = origin.clone().add(direction.clone().multiplyScalar(endDistance))
       const coneAngle = 0.05
       const endRadius = endDistance * Math.tan(coneAngle)
