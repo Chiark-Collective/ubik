@@ -1,10 +1,10 @@
-# SDF Hints
+# Ubik
 
-Interactive web application for generating SDF (Signed Distance Field) training hints from point clouds.
+Spraypaint SDF (Signed Distance Field) far-field constraints onto your point clouds.
 
 ## Overview
 
-SDF Hints provides an intuitive interface for marking regions of point clouds as "solid" (inside) or "empty" (outside), generating training data for SDF regression models. 
+Ubik marks point clouds as "solid" (inside) or "empty" (outside), generating training data for SDF regression models. 
 
 ## Features
 
