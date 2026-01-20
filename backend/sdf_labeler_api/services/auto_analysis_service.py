@@ -24,12 +24,54 @@ from sdf_labeler_api.services.pocket_service import PocketService
 
 
 class AutoAnalysisService:
-    """Service for automatic SDF region detection using multiple algorithms.
+    """Service for automatic SDF region detection using ray propagation.
 
-    Unlike per-point classification, this generates spatial constraints
-    (boxes, halfspaces, pockets) that define regions of 3D space around
-    the surface. Point cloud points are ON the surface (SDF ≈ 0), so we
-    generate constraints for OFF-surface regions.
+    Generates spatial constraints (boxes) that define SOLID (underground) and
+    EMPTY (sky-reachable) regions for outdoor scenes with trenches and pipes.
+
+    ## Algorithm Overview
+
+    The core algorithm uses a voxel grid with ray propagation and flood fill:
+
+    1. **Voxelization**: Point cloud → 3D boolean grid (max 150³)
+       - Voxel size = mean_spacing * 1.5 for good resolution
+       - Grid extends +Z for sky space, +5 voxels in -Z for underground
+
+    2. **Surface Dilation**: 3x3x3 binary dilation creates flood-fill barriers
+       - Prevents EMPTY/SOLID from bleeding through thin surfaces
+
+    3. **EMPTY Detection** (sky-reachable air):
+       - Cast rays from +Z (sky) downward in a 15° cone (9 directions)
+       - Rays stop when hitting dilated surface voxels
+       - Flood-fill from ray seeds to reach all connected air
+       - This correctly fills trench interiors (open to sky)
+
+    4. **SOLID Detection** (underground):
+       - Cast rays from -Z (underground) upward in a 15° cone
+       - Only within 2D convex hull of point cloud XY extent
+       - Flood-fill from seeds, but NEVER overwrite EMPTY (EMPTY wins)
+       - This fills underground while avoiding trench interiors
+
+    5. **Box Generation**: Per-Z-slice greedy 2D meshing
+       - Each Z-slice decomposed into axis-aligned rectangles
+       - Vertically adjacent rectangles with same XY extent merged
+       - Results in fewer, larger box constraints
+
+    ## Key Parameters
+
+    - `voxel_size`: mean_spacing * 1.5 (balance resolution vs performance)
+    - `max_dim`: 150 (caps grid size for memory/speed)
+    - `cone_angle`: 15° (allows rays to reach under pipes/overhangs)
+    - `dilation`: 3x3x3 structure, 1 iteration (blocks thin gaps)
+
+    ## Scene Model
+
+    Designed for outdoor scenes where:
+    - +Z = sky (source of EMPTY)
+    - -Z = underground (source of SOLID)
+    - Surface separates air from ground
+    - Trenches are open to sky (EMPTY reaches in)
+    - Pipes may occlude direct rays (cone angle helps)
     """
 
     def __init__(self, settings: Settings):
