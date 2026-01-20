@@ -33,8 +33,9 @@ class AutoAnalysisService:
 
     The core algorithm uses a voxel grid with ray propagation and flood fill:
 
-    1. **Voxelization**: Point cloud → 3D boolean grid (max 150³)
-       - Voxel size = mean_spacing * 1.5 for good resolution
+    1. **Voxelization**: Point cloud → 3D boolean grid (max 200³)
+       - Voxel size = min(mean_spacing * 1.5, min_gap_size / 3)
+       - Adapts to both point density AND minimum gap requirements
        - Grid extends +Z for sky space, +5 voxels in -Z for underground
 
     2. **Surface Dilation**: 3x3x3 binary dilation creates flood-fill barriers
@@ -59,8 +60,9 @@ class AutoAnalysisService:
 
     ## Key Parameters
 
-    - `voxel_size`: mean_spacing * 1.5 (balance resolution vs performance)
-    - `max_dim`: 150 (caps grid size for memory/speed)
+    - `voxel_size`: min(mean_spacing * 1.5, min_gap_size / 3)
+    - `min_gap_size`: 0.10m default - smallest gap flood fill should traverse
+    - `max_dim`: 200 (caps grid at 200³ = 8M voxels for memory/speed)
     - `cone_angle`: 15° (allows rays to reach under pipes/overhangs)
     - `dilation`: 3x3x3 structure, 1 iteration (blocks thin gaps)
 
@@ -352,8 +354,15 @@ class AutoAnalysisService:
 
         return best_z
 
+    # Default minimum gap size (meters) - gaps smaller than this may be blocked
+    MIN_GAP_SIZE_DEFAULT = 0.10  # 10cm, typical pipe clearance
+
     def _build_voxel_grid(
-        self, xyz: np.ndarray, voxel_size: float | None = None, z_extension: float | None = None
+        self,
+        xyz: np.ndarray,
+        voxel_size: float | None = None,
+        z_extension: float | None = None,
+        min_gap_size: float | None = None,
     ) -> tuple[np.ndarray, np.ndarray, float, tuple[int, int, int]] | None:
         """Build a voxel grid from point cloud data.
 
@@ -363,6 +372,9 @@ class AutoAnalysisService:
             z_extension: How much to extend the grid above the point cloud in +Z.
                          For outdoor scenes, this creates "sky" space above ground.
                          If None, defaults to 50% of scene Z range (min 5 voxels).
+            min_gap_size: Minimum physical gap (meters) that flood fill should pass through.
+                          Voxel size is constrained to ensure gaps this size span ≥3 voxels.
+                          Default: 0.10m (10cm).
 
         Returns:
             Tuple of (occupied grid, bbox_min, voxel_size, grid_shape) or None if invalid.
@@ -370,12 +382,19 @@ class AutoAnalysisService:
         if len(xyz) < 10:
             return None
 
-        # Determine voxel size based on point cloud
+        if min_gap_size is None:
+            min_gap_size = self.MIN_GAP_SIZE_DEFAULT
+
+        # Determine voxel size based on point cloud density
         tree = KDTree(xyz)
         mean_spacing = self._estimate_mean_spacing(xyz, tree)
 
         if voxel_size is None:
-            voxel_size = mean_spacing * 1.5
+            # Voxel size based on point density, but constrained by min_gap_size
+            # Gap must span ≥3 voxels for flood fill to pass (1 voxel dilation each side)
+            density_based = mean_spacing * 1.5
+            gap_based = min_gap_size / 3.0
+            voxel_size = min(density_based, gap_based)
 
         # Ensure voxel_size is a valid float
         voxel_size_float: float = float(voxel_size)
@@ -406,8 +425,8 @@ class AutoAnalysisService:
         if np.any(grid_shape <= 0):
             return None
 
-        # Cap grid size for performance
-        max_dim = 150
+        # Cap grid size for performance (200³ = 8M voxels, reasonable for modern hardware)
+        max_dim = 200
         vs: float = voxel_size  # Local float variable for type safety
         if grid_shape.max() > max_dim:
             scale = float(max_dim / grid_shape.max())
