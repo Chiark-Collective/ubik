@@ -640,7 +640,7 @@ class AutoAnalysisService:
         return boxes
 
     def _generate_flood_fill_constraints(
-        self, xyz: np.ndarray, _normals: np.ndarray | None
+        self, xyz: np.ndarray, normals: np.ndarray | None
     ) -> list[GeneratedConstraint]:
         """Generate EMPTY box constraints using ray propagation with bouncing.
 
@@ -651,6 +651,9 @@ class AutoAnalysisService:
 
         This correctly handles trenches: rays enter from above and bounce
         to fill the interior, creating EMPTY boxes that extend into the trench.
+
+        Small EMPTY boxes entirely below ground level are filtered out as
+        they're likely flood-fill leaks through tiny surface gaps.
         """
         constraints: list[GeneratedConstraint] = []
 
@@ -660,6 +663,9 @@ class AutoAnalysisService:
 
         occupied, bbox_min, voxel_size, grid_shape = grid_result
         _nx, _ny, nz = grid_shape
+
+        # Find dominant ground level for filtering underground EMPTY leaks
+        ground_z = self._find_dominant_ground_z(xyz, normals)
 
         # Compute hull mask
         inside_hull = self._compute_hull_mask(xyz, bbox_min, voxel_size, grid_shape)
@@ -708,6 +714,21 @@ class AutoAnalysisService:
                 current = box
 
         merged_boxes.append(current)
+
+        # Filter out small EMPTY boxes entirely below ground level (likely leaks)
+        if ground_z is not None:
+            filtered_boxes = []
+            for box in merged_boxes:
+                z_start, z_end, x_min, x_max, y_min, y_max = box
+                # Convert Z indices to world coordinates
+                world_z_max = bbox_min[2] + z_end * voxel_size
+                # Keep if box extends above ground, or if it's large (trench interior)
+                n_voxels = (z_end - z_start) * (x_max - x_min) * (y_max - y_min)
+                is_above_ground = world_z_max >= ground_z
+                is_large = n_voxels >= 100
+                if is_above_ground or is_large:
+                    filtered_boxes.append(box)
+            merged_boxes = filtered_boxes
 
         # Cap the number of boxes
         max_boxes = 30
