@@ -16,6 +16,7 @@ import { useRayScribbleStore } from '../../stores/rayScribbleStore'
 import { useSprayEffectStore } from '../../stores/sprayEffectStore'
 import { useLocalSpacing } from '../../hooks/useLocalSpacing'
 import { usePocketStore } from '../../stores/pocketStore'
+import { useAutoAnalysisStore } from '../../stores/autoAnalysisStore'
 import { useConstraintSync } from '../../hooks/useConstraintSync'
 import { toast } from '../../stores/toastStore'
 import { LoadingButton } from './Spinner'
@@ -26,7 +27,14 @@ import { SeedMode } from '../modes/SeedMode'
 import { MLImportMode } from '../modes/MLImportMode'
 import { RayScribbleMode } from '../modes/RayScribbleMode'
 import { ClickPocketMode } from '../modes/ClickPocketMode'
-import { generateSamples, exportParquet, clearConstraints as clearConstraintsApi } from '../../services/api'
+import { AutoMode } from '../modes/AutoMode'
+import {
+  generateSamples,
+  exportParquet,
+  clearConstraints as clearConstraintsApi,
+  runAutoAnalysis,
+  applyAutoConstraints,
+} from '../../services/api'
 
 const labelOptions: { value: LabelType; label: string; description: string; color: string }[] = [
   {
@@ -279,6 +287,113 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
   )
 }
 
+// Wrapper for AutoMode with store integration
+function AutoModePanel({ projectId }: { projectId: string }) {
+  const result = useAutoAnalysisStore((s) => s.result)
+  const isAnalyzing = useAutoAnalysisStore((s) => s.isAnalyzing)
+  const isApplying = useAutoAnalysisStore((s) => s.isApplying)
+  const selectedIndices = useAutoAnalysisStore((s) => s.selectedIndices)
+  const setResult = useAutoAnalysisStore((s) => s.setResult)
+  const setIsAnalyzing = useAutoAnalysisStore((s) => s.setIsAnalyzing)
+  const setIsApplying = useAutoAnalysisStore((s) => s.setIsApplying)
+  const setAnalyzeError = useAutoAnalysisStore((s) => s.setAnalyzeError)
+  const setApplyError = useAutoAnalysisStore((s) => s.setApplyError)
+  const toggleConstraint = useAutoAnalysisStore((s) => s.toggleConstraint)
+  const selectAll = useAutoAnalysisStore((s) => s.selectAll)
+  const deselectAll = useAutoAnalysisStore((s) => s.deselectAll)
+
+  const queryClient = useQueryClient()
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true)
+    setAnalyzeError(null)
+    try {
+      const data = await runAutoAnalysis(projectId, { recompute: true })
+      setResult({
+        analysisId: data.analysis_id,
+        computedAt: data.computed_at,
+        algorithmsRun: data.algorithms_run,
+        summary: {
+          totalConstraints: data.summary.total_constraints,
+          solidConstraints: data.summary.solid_constraints,
+          emptyConstraints: data.summary.empty_constraints,
+          algorithmsContributing: data.summary.algorithms_contributing,
+        },
+        algorithmStats: Object.fromEntries(
+          Object.entries(data.algorithm_stats).map(([k, v]) => [
+            k,
+            {
+              constraintsGenerated: v.constraints_generated,
+              coverageDescription: v.coverage_description,
+            },
+          ])
+        ),
+        generatedConstraints: data.generated_constraints.map((gc: {
+          constraint: { type: string; sign: string; [key: string]: unknown }
+          algorithm: string
+          confidence: number
+          description: string
+        }) => ({
+          constraint: {
+            ...gc.constraint,
+            sign: gc.constraint.sign as 'solid' | 'empty',
+          },
+          algorithm: gc.algorithm as import('../../stores/autoAnalysisStore').AlgorithmType,
+          confidence: gc.confidence,
+          description: gc.description,
+        })),
+      })
+      toast.success('Auto-analysis complete', `Generated ${data.summary.total_constraints} constraints`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      setAnalyzeError(message)
+      toast.error('Auto-analysis failed', message)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleApply = async () => {
+    if (selectedIndices.size === 0) return
+
+    setIsApplying(true)
+    setApplyError(null)
+    try {
+      const indices = Array.from(selectedIndices)
+      const data = await applyAutoConstraints(projectId, { constraintIndices: indices })
+      toast.success('Constraints applied', `Added ${data.constraints_added} constraints`)
+
+      // Refresh constraints list
+      queryClient.invalidateQueries({ queryKey: ['constraints', projectId] })
+
+      // Clear selection after successful apply
+      deselectAll()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      setApplyError(message)
+      toast.error('Apply failed', message)
+    } finally {
+      setIsApplying(false)
+    }
+  }
+
+  return (
+    <div className="border-b border-gray-800">
+      <AutoMode
+        result={result}
+        isAnalyzing={isAnalyzing}
+        isApplying={isApplying}
+        selectedIndices={selectedIndices}
+        onAnalyze={handleAnalyze}
+        onApply={handleApply}
+        onToggleConstraint={toggleConstraint}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+      />
+    </div>
+  )
+}
+
 export function LabelPanel() {
   const [collapsed, setCollapsed] = useState(false)
 
@@ -430,6 +545,10 @@ export function LabelPanel() {
 
         {mode === 'import' && currentProjectId && (
           <MLImportModePanel projectId={currentProjectId} />
+        )}
+
+        {mode === 'auto' && currentProjectId && (
+          <AutoModePanel projectId={currentProjectId} />
         )}
 
         {/* Constraints list */}

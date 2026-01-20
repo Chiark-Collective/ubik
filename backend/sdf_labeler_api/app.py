@@ -31,9 +31,14 @@ from sdf_labeler_api.services.pointcloud_service import PointCloudService
 from sdf_labeler_api.services.constraint_service import ConstraintService
 from sdf_labeler_api.services.sampling_service import SamplingService
 from sdf_labeler_api.services.pocket_service import PocketService
+from sdf_labeler_api.services.auto_analysis_service import AutoAnalysisService
 from sdf_labeler_api.services import scenarios_service
 from sdf_labeler_api.models.pockets import PocketAnalysis
 from sdf_labeler_api.models.constraints import SignConvention
+from sdf_labeler_api.models.auto_analysis import (
+    ApplyConstraintsRequest,
+    AutoAnalysisResult,
+)
 
 
 @asynccontextmanager
@@ -67,6 +72,7 @@ pointcloud_service = PointCloudService(settings)
 constraint_service = ConstraintService()
 sampling_service = SamplingService()
 pocket_service = PocketService(settings)
+auto_analysis_service = AutoAnalysisService(settings)
 
 
 # =============================================================================
@@ -335,6 +341,117 @@ async def toggle_pocket(
         return constraint_service.add(project_id, pocket_constraint)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# Auto Analysis
+# =============================================================================
+
+
+@app.post("/v1/projects/{project_id}/auto/analyze", response_model=AutoAnalysisResult)
+async def auto_analyze(
+    project_id: str,
+    algorithms: str | None = Query(
+        default=None,
+        description="Comma-separated algorithms: pocket,convex_hull,sky_visibility,normal_offset",
+    ),
+    recompute: bool = Query(default=False),
+):
+    """Run automatic SDF region detection using multiple algorithms.
+
+    Generates spatial constraints (boxes, halfspaces, pockets) that define
+    regions of 3D space around the surface for SOLID/EMPTY labeling.
+    Returns generated constraints for user review and approval.
+    """
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.point_cloud_id is None:
+        raise HTTPException(status_code=400, detail="No point cloud uploaded")
+
+    # Parse algorithm list
+    algo_list = None
+    if algorithms:
+        algo_list = [a.strip() for a in algorithms.split(",")]
+
+    try:
+        return await auto_analysis_service.analyze(
+            project_id,
+            algorithms=algo_list,
+            recompute=recompute,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/projects/{project_id}/auto/result", response_model=AutoAnalysisResult | None)
+async def get_auto_result(project_id: str):
+    """Get cached auto-analysis result with generated constraints."""
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return auto_analysis_service.get_cached_result(project_id)
+
+
+@app.post("/v1/projects/{project_id}/auto/apply")
+async def apply_auto_constraints(
+    project_id: str,
+    request: ApplyConstraintsRequest,
+):
+    """Apply selected generated constraints to the project.
+
+    Takes indices of constraints from the auto-analysis result and adds
+    them to the project's constraint set.
+    """
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Get cached analysis
+    result = auto_analysis_service.get_cached_result(project_id)
+    if result is None:
+        raise HTTPException(status_code=400, detail="No auto-analysis results available")
+
+    # Validate indices
+    if not request.constraint_indices:
+        raise HTTPException(status_code=400, detail="No constraints selected")
+
+    max_idx = len(result.generated_constraints) - 1
+    invalid_indices = [i for i in request.constraint_indices if i < 0 or i > max_idx]
+    if invalid_indices:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid constraint indices: {invalid_indices}. Valid range: 0-{max_idx}",
+        )
+
+    # Add selected constraints to project
+    added_constraints = []
+    for idx in request.constraint_indices:
+        gen_constraint = result.generated_constraints[idx]
+        # Create constraint from the dict
+        constraint_data = gen_constraint.constraint.copy()
+        added = constraint_service.add_from_dict(project_id, constraint_data)
+        added_constraints.append(added)
+
+    return {
+        "status": "applied",
+        "constraints_added": len(added_constraints),
+        "constraint_ids": [c.id for c in added_constraints],
+    }
+
+
+@app.delete("/v1/projects/{project_id}/auto")
+async def clear_auto_analysis(project_id: str):
+    """Clear cached auto-analysis for a project."""
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    auto_analysis_service.clear_cache(project_id)
+    return {"status": "cleared", "project_id": project_id}
 
 
 # =============================================================================

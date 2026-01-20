@@ -15,6 +15,7 @@ import {
   Component1Icon,
   DotsHorizontalIcon,
   ChevronDownIcon,
+  MagicWandIcon,
 } from '@radix-ui/react-icons'
 import * as ToggleGroup from '@radix-ui/react-toggle-group'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -36,6 +37,7 @@ const primaryModes: ModeConfig[] = [
   { value: 'ray_scribble', icon: Pencil2Icon, label: 'Ray Scribble', shortcut: 'R', ariaLabel: 'Ray Scribble' },
   { value: 'click_pocket', icon: Component1Icon, label: 'Click Pocket', shortcut: 'C', ariaLabel: 'Click Pocket' },
   { value: 'slice', icon: ShadowIcon, label: 'Slice Paint', shortcut: 'S', ariaLabel: 'Slice' },
+  { value: 'auto', icon: MagicWandIcon, label: 'Auto Analysis', shortcut: 'A', ariaLabel: 'Auto' },
 ]
 
 const secondaryModes: ModeConfig[] = [

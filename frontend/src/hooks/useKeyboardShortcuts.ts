@@ -79,6 +79,11 @@ export function useKeyboardShortcuts() {
           }
           break
 
+        case 'a':
+          e.preventDefault()
+          setMode('auto')
+          break
+
         // Secondary modes
         case 'p':
           e.preventDefault()

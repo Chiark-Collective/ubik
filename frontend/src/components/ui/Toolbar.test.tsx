@@ -37,16 +37,16 @@ describe('Toolbar', () => {
   })
 
   describe('primary mode buttons', () => {
-    it('should render 4 primary mode buttons in toggle group', () => {
+    it('should render 5 primary mode buttons in toggle group', () => {
       render(<Toolbar />)
 
       // Mode buttons are toggle items, we check they're rendered
       const toggleGroup = screen.getByRole('group')
       expect(toggleGroup).toBeInTheDocument()
 
-      // Should have 4 primary mode buttons (orbit, ray_scribble, click_pocket, slice)
+      // Should have 5 primary mode buttons (orbit, ray_scribble, click_pocket, auto, slice)
       const buttons = toggleGroup.querySelectorAll('[role="radio"]')
-      expect(buttons).toHaveLength(4)
+      expect(buttons).toHaveLength(5)
     })
 
     it('should have orbit as initial mode', () => {

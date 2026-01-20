@@ -85,7 +85,7 @@ export class AppHelper {
 
   // Primary modes (visible in toolbar)
   get primaryModes() {
-    return ['orbit', 'ray_scribble', 'click_pocket', 'slice'] as const
+    return ['orbit', 'ray_scribble', 'click_pocket', 'slice', 'auto'] as const
   }
 
   // Secondary modes (in dropdown)
@@ -96,7 +96,7 @@ export class AppHelper {
   /**
    * Select a mode - handles both primary (visible) and secondary (dropdown) modes
    */
-  async selectMode(mode: 'Orbit' | 'Primitive' | 'Slice' | 'Brush' | 'Seed' | 'Import' | 'RayScribble' | 'ClickPocket') {
+  async selectMode(mode: 'Orbit' | 'Primitive' | 'Slice' | 'Brush' | 'Seed' | 'Import' | 'RayScribble' | 'ClickPocket' | 'Auto') {
     const modeKey = mode.toLowerCase().replace('rayscribble', 'ray_scribble').replace('clickpocket', 'click_pocket')
 
     // Primary modes are directly clickable
@@ -119,7 +119,7 @@ export class AppHelper {
     await this.page.waitForSelector('[role="menu"]', { timeout: 2000 })
   }
 
-  getModeButton(mode: 'Orbit' | 'Primitive' | 'Slice' | 'Brush' | 'Seed' | 'Import' | 'RayScribble' | 'ClickPocket'): Locator {
+  getModeButton(mode: 'Orbit' | 'Primitive' | 'Slice' | 'Brush' | 'Seed' | 'Import' | 'RayScribble' | 'ClickPocket' | 'Auto'): Locator {
     const modeKey = mode.toLowerCase().replace('rayscribble', 'ray_scribble').replace('clickpocket', 'click_pocket')
     return this.page.locator(`[data-testid="mode-${modeKey}"]`)
   }

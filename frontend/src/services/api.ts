@@ -437,6 +437,98 @@ export async function deleteAllProjects(): Promise<void> {
   await Promise.all(projects.map((p) => deleteProject(p.id)))
 }
 
+// Auto-analysis types
+export interface AutoAlgorithmStats {
+  constraints_generated: number
+  coverage_description: string
+}
+
+export interface AutoAnalysisSummary {
+  total_constraints: number
+  solid_constraints: number
+  empty_constraints: number
+  algorithms_contributing: number
+}
+
+export interface GeneratedConstraint {
+  constraint: {
+    type: string
+    sign: string
+    [key: string]: unknown
+  }
+  algorithm: string
+  confidence: number
+  description: string
+}
+
+export interface AutoAnalysisResult {
+  analysis_id: string
+  computed_at: string
+  algorithms_run: string[]
+  summary: AutoAnalysisSummary
+  algorithm_stats: Record<string, AutoAlgorithmStats>
+  generated_constraints: GeneratedConstraint[]
+}
+
+export interface ApplyConstraintsRequest {
+  constraintIndices: number[]
+}
+
+export interface ApplyConstraintsResponse {
+  status: string
+  constraints_added: number
+  constraint_ids: string[]
+}
+
+// Auto-analysis endpoints
+export async function runAutoAnalysis(
+  projectId: string,
+  options?: {
+    algorithms?: string[]
+    recompute?: boolean
+  }
+): Promise<AutoAnalysisResult> {
+  const params = new URLSearchParams()
+  if (options?.algorithms) {
+    params.set('algorithms', options.algorithms.join(','))
+  }
+  if (options?.recompute) {
+    params.set('recompute', 'true')
+  }
+
+  const query = params.toString() ? `?${params}` : ''
+  return request(`/projects/${projectId}/auto/analyze${query}`, {
+    method: 'POST',
+  })
+}
+
+export async function getAutoAnalysisResult(
+  projectId: string
+): Promise<AutoAnalysisResult | null> {
+  return request(`/projects/${projectId}/auto/result`)
+}
+
+export async function applyAutoConstraints(
+  projectId: string,
+  request: ApplyConstraintsRequest
+): Promise<ApplyConstraintsResponse> {
+  return globalThis.fetch(`${API_BASE}/projects/${projectId}/auto/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ constraint_indices: request.constraintIndices }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(error.detail || `HTTP ${res.status}`)
+    }
+    return res.json()
+  })
+}
+
+export async function clearAutoAnalysis(projectId: string): Promise<void> {
+  await request(`/projects/${projectId}/auto`, { method: 'DELETE' })
+}
+
 // Health check
 export async function healthCheck(): Promise<{ status: string; version: string }> {
   const response = await fetch('/health')
