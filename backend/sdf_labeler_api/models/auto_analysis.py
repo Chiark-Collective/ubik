@@ -16,10 +16,9 @@ class AlgorithmType(str, Enum):
     VOXEL_REGIONS = "voxel_regions"  # Underground regions via voxel classification for SOLID boxes
 
 
-# TODO: Re-enable pocket and normal_offset after testing flood_fill/voxel_regions
 ALL_ALGORITHMS = [
-    # AlgorithmType.POCKET,
-    # AlgorithmType.NORMAL_OFFSET,
+    AlgorithmType.POCKET,
+    AlgorithmType.NORMAL_OFFSET,
     AlgorithmType.FLOOD_FILL,
     AlgorithmType.VOXEL_REGIONS,
 ]

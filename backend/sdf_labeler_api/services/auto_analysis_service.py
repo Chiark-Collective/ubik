@@ -469,16 +469,14 @@ class AutoAnalysisService:
         occupied: np.ndarray,
         grid_shape: tuple[int, int, int],
         inside_hull: np.ndarray,
-        max_bounces: int = 8,
         cone_angle_degrees: float = 15.0,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Propagate EMPTY/SOLID using ray model with cone angles and bouncing.
+        """Propagate EMPTY/SOLID using ray model with cone angles and flood fill.
 
         Physical model:
-        1. EMPTY rays shine from +Z in a cone (not just straight down)
-        2. SOLID rays shine from -Z in a cone (not just straight up)
-        3. Both ray types "bounce" (spread omnidirectionally) for N iterations
-        4. EMPTY has priority - if it reaches a voxel first, SOLID can't claim it
+        1. EMPTY rays shine from +Z (sky) in a cone, then flood-fill from seeds
+        2. SOLID rays shine from -Z (underground) in a cone, then flood-fill
+        3. EMPTY has priority - SOLID flood-fill never overwrites EMPTY
 
         The cone angle allows rays to reach under overhangs and pipes that
         would shadow areas from straight-down rays.
