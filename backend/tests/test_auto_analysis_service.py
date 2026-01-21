@@ -467,6 +467,384 @@ class TestHelperMethods:
         assert not solid[5, 5, 4], "Trench interior should not be SOLID"
 
 
+class TestBoxIntersectionFraction:
+    """Tests for box intersection fraction calculation."""
+
+    def test_inner_fully_contained(self, auto_service: AutoAnalysisService):
+        """Fully contained box should have 100% intersection."""
+        outer = {"center": (0, 0, 0), "half_extents": (2, 2, 2)}
+        inner = {"center": (0, 0, 0), "half_extents": (1, 1, 1)}
+
+        assert auto_service._box_intersection_fraction(outer, inner) == 1.0
+
+    def test_inner_offset_but_contained(self, auto_service: AutoAnalysisService):
+        """Offset but contained box should have 100% intersection."""
+        outer = {"center": (0, 0, 0), "half_extents": (5, 5, 5)}
+        inner = {"center": (2, 2, 2), "half_extents": (1, 1, 1)}
+
+        assert auto_service._box_intersection_fraction(outer, inner) == 1.0
+
+    def test_half_overlap(self, auto_service: AutoAnalysisService):
+        """Box overlapping by half should return 0.5."""
+        box_a = {"center": (0, 0, 0), "half_extents": (1, 1, 1)}
+        box_b = {"center": (1, 0, 0), "half_extents": (1, 1, 1)}  # Shifted by 1 in X
+
+        # box_b goes from x=0 to x=2, box_a goes from x=-1 to x=1
+        # Overlap is x=0 to x=1 (half of box_b's X extent)
+        fraction = auto_service._box_intersection_fraction(box_a, box_b)
+        assert abs(fraction - 0.5) < 0.01
+
+    def test_no_overlap(self, auto_service: AutoAnalysisService):
+        """Non-overlapping boxes should return 0."""
+        box_a = {"center": (0, 0, 0), "half_extents": (1, 1, 1)}
+        box_b = {"center": (10, 10, 10), "half_extents": (1, 1, 1)}
+
+        assert auto_service._box_intersection_fraction(box_a, box_b) == 0.0
+
+    def test_same_box(self, auto_service: AutoAnalysisService):
+        """Same box should have 100% intersection with itself."""
+        box = {"center": (1, 2, 3), "half_extents": (2, 2, 2)}
+
+        assert auto_service._box_intersection_fraction(box, box) == 1.0
+
+    def test_edge_touching(self, auto_service: AutoAnalysisService):
+        """Boxes just touching at edge should have 0% intersection."""
+        box_a = {"center": (0, 0, 0), "half_extents": (1, 1, 1)}
+        box_b = {"center": (2, 0, 0), "half_extents": (1, 1, 1)}  # Touches at X=1
+
+        assert auto_service._box_intersection_fraction(box_a, box_b) == 0.0
+
+    def test_partial_overlap_3d(self, auto_service: AutoAnalysisService):
+        """Partial overlap in all dimensions."""
+        box_a = {"center": (0, 0, 0), "half_extents": (2, 2, 2)}
+        # box_b centered at (2,2,2) with half_extents (1,1,1) -> goes from (1,1,1) to (3,3,3)
+        # overlap with box_a (from -2,-2,-2 to 2,2,2) is (1,1,1) to (2,2,2) = 1x1x1 = 1
+        # box_b volume is 2x2x2 = 8
+        box_b = {"center": (2, 2, 2), "half_extents": (1, 1, 1)}
+
+        fraction = auto_service._box_intersection_fraction(box_a, box_b)
+        assert abs(fraction - 0.125) < 0.01  # 1/8 = 0.125
+
+
+class TestSimplifyConstraints:
+    """Tests for constraint simplification (removing overlapping boxes)."""
+
+    def test_removes_fully_contained_box_same_sign(self, auto_service: AutoAnalysisService):
+        """Should remove smaller box when fully contained by larger box of same sign."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        outer = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (0, 0, 0),
+                "half_extents": (5, 5, 5),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Large box",
+        )
+        inner = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (1, 1, 1),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Small box",
+        )
+
+        result = auto_service._simplify_constraints([outer, inner])
+
+        assert len(result) == 1
+        assert result[0] == outer
+
+    def test_removes_mostly_overlapping_box(self, auto_service: AutoAnalysisService):
+        """Should remove smaller box when >50% overlaps with larger box."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (0, 0, 0),
+                "half_extents": (5, 5, 5),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Large box",
+        )
+        # Small box at edge - 75% inside large box
+        # large: -5 to 5, small: 3 to 7 -> overlap 3 to 5 = 2 out of 4 = 50% in X
+        # But we want >50%, so shift it more inside
+        small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (2, 0, 0),  # 60% inside (overlap from -2 to 5 out of -2 to 6)
+                "half_extents": (2, 2, 2),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Small box",
+        )
+
+        result = auto_service._simplify_constraints([large, small])
+
+        # Small box has >50% overlap, should be removed
+        assert len(result) == 1
+        assert result[0].description == "Large box"
+
+    def test_keeps_minimally_overlapping_box(self, auto_service: AutoAnalysisService):
+        """Should keep smaller box when <=50% overlaps with larger box."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (0, 0, 0),
+                "half_extents": (2, 2, 2),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Large box",
+        )
+        # Small box mostly outside - only 25% inside
+        # large: -2 to 2, small: 1 to 5 -> overlap 1 to 2 = 1 out of 4 = 25% in X
+        small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (3, 0, 0),
+                "half_extents": (2, 2, 2),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Small box",
+        )
+
+        result = auto_service._simplify_constraints([large, small])
+
+        # Small box has <50% overlap, should be kept
+        assert len(result) == 2
+
+    def test_removes_contradictory_box_different_signs(self, auto_service: AutoAnalysisService):
+        """Should remove smaller box when mostly inside larger box of opposite sign."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        solid_large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (0, 0, 0),
+                "half_extents": (5, 5, 5),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Solid box",
+        )
+        empty_small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (1, 1, 1),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Empty box",
+        )
+
+        result = auto_service._simplify_constraints([solid_large, empty_small])
+
+        # Small empty box inside large solid box should be removed (contradictory)
+        assert len(result) == 1
+        assert result[0].description == "Solid box"
+
+    def test_keeps_non_overlapping_same_sign(self, auto_service: AutoAnalysisService):
+        """Should keep both boxes when they don't overlap."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        box1 = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (0, 0, 0),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Box 1",
+        )
+        box2 = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (10, 10, 10),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Box 2",
+        )
+
+        result = auto_service._simplify_constraints([box1, box2])
+
+        assert len(result) == 2
+
+    def test_preserves_non_box_constraints(self, auto_service: AutoAnalysisService):
+        """Non-box constraints should be preserved."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        pocket = GeneratedConstraint(
+            constraint={
+                "type": "pocket",
+                "sign": "solid",
+                "pocket_id": "test",
+                "voxel_count": 100,
+                "centroid": [0, 0, 0],
+                "bounds_low": [-1, -1, -1],
+                "bounds_high": [1, 1, 1],
+                "volume_estimate": 8.0,
+            },
+            algorithm=AlgorithmType.POCKET,
+            confidence=0.95,
+            description="A pocket",
+        )
+        box = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (0, 0, 0),
+                "half_extents": (10, 10, 10),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Large box",
+        )
+
+        result = auto_service._simplify_constraints([pocket, box])
+
+        # Both should remain - pocket is not a box
+        assert len(result) == 2
+        assert any(c.constraint["type"] == "pocket" for c in result)
+
+    def test_handles_empty_list(self, auto_service: AutoAnalysisService):
+        """Should handle empty constraint list."""
+        result = auto_service._simplify_constraints([])
+
+        assert result == []
+
+    def test_nested_containment(self, auto_service: AutoAnalysisService):
+        """When A contains B contains C, should only keep A."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (0, 0, 0),
+                "half_extents": (10, 10, 10),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Large",
+        )
+        medium = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (0, 0, 0),
+                "half_extents": (5, 5, 5),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Medium",
+        )
+        small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (0, 0, 0),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Small",
+        )
+
+        # Order shouldn't matter
+        result = auto_service._simplify_constraints([small, large, medium])
+
+        assert len(result) == 1
+        assert result[0].description == "Large"
+
+    def test_multiple_separate_groups(self, auto_service: AutoAnalysisService):
+        """Separate containment groups should each simplify independently."""
+        from sdf_labeler_api.models.auto_analysis import AlgorithmType, GeneratedConstraint
+
+        # Group 1: SOLID boxes
+        solid_large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (-10, 0, 0),
+                "half_extents": (3, 3, 3),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Solid large",
+        )
+        solid_small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "solid",
+                "center": (-10, 0, 0),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Solid small",
+        )
+
+        # Group 2: EMPTY boxes
+        empty_large = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (10, 0, 0),
+                "half_extents": (3, 3, 3),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Empty large",
+        )
+        empty_small = GeneratedConstraint(
+            constraint={
+                "type": "box",
+                "sign": "empty",
+                "center": (10, 0, 0),
+                "half_extents": (1, 1, 1),
+            },
+            algorithm=AlgorithmType.FLOOD_FILL,
+            confidence=0.9,
+            description="Empty small",
+        )
+
+        result = auto_service._simplify_constraints(
+            [solid_large, solid_small, empty_large, empty_small]
+        )
+
+        # Should keep one from each sign group
+        assert len(result) == 2
+        descriptions = {c.description for c in result}
+        assert "Solid large" in descriptions
+        assert "Empty large" in descriptions
+
+
 class TestCaching:
     """Tests for result caching."""
 

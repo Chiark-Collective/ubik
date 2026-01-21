@@ -3,11 +3,12 @@
 
 import json
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import binary_dilation
+from scipy.ndimage import binary_dilation, label
 from scipy.spatial import ConvexHull, Delaunay, KDTree
 
 from sdf_labeler_api.config import Settings
@@ -149,6 +150,9 @@ class AutoAnalysisService:
                     constraints_generated=len(constraints),
                     coverage_description=self._get_algorithm_description(algo_name, len(constraints)),
                 )
+
+        # Remove redundant contained boxes
+        all_constraints = self._simplify_constraints(all_constraints)
 
         # Compute summary
         summary = self._compute_summary(all_constraints, len(algorithm_stats))
@@ -392,7 +396,8 @@ class AutoAnalysisService:
         if voxel_size is None:
             # Voxel size based on point density, but constrained by min_gap_size
             # Gap must span ≥3 voxels for flood fill to pass (1 voxel dilation each side)
-            density_based = mean_spacing * 1.5
+            # Using 2x mean_spacing helps close small surface gaps
+            density_based = mean_spacing * 2.0
             gap_based = min_gap_size / 3.0
             voxel_size = min(density_based, gap_based)
 
@@ -570,16 +575,58 @@ class AutoAnalysisService:
             (0, 0, 1), (0, 0, -1),
         ]
 
+        # Compute per-column floor: lowest occupied Z for each XY column
+        # EMPTY cannot exist below this floor (it would be underground)
+        column_floor = np.full((nx, ny), -1, dtype=int)
+        for ix in range(nx):
+            for iy in range(ny):
+                occupied_z = np.where(occupied[ix, iy, :])[0]
+                if len(occupied_z) > 0:
+                    column_floor[ix, iy] = occupied_z.min()
+
         # Flood fill EMPTY (all air connected to sky becomes EMPTY)
+        # But don't go below the column floor
         empty_stack = [tuple(coord) for coord in np.argwhere(empty)]
         while empty_stack:
             ix, iy, iz = empty_stack.pop()
             for dx, dy, dz in directions:
                 nx_, ny_, nz_ = ix + dx, iy + dy, iz + dz
                 if 0 <= nx_ < nx and 0 <= ny_ < ny and 0 <= nz_ < nz:
+                    # Don't allow EMPTY below the surface floor in this column
+                    floor_z = column_floor[nx_, ny_]
+                    if floor_z >= 0 and nz_ < floor_z:
+                        continue
                     if not occupied[nx_, ny_, nz_] and not empty[nx_, ny_, nz_]:
                         empty[nx_, ny_, nz_] = True
                         empty_stack.append((nx_, ny_, nz_))
+
+        # Filter EMPTY by sky connectivity: only keep regions connected to top of grid
+        # This removes small leak regions that got through tiny surface gaps
+        labeled_empty, num_components = label(empty)
+        if num_components > 0:
+            # Find which component labels touch the sky (top Z slice)
+            top_slice = labeled_empty[:, :, -1]
+            sky_labels = set(top_slice[top_slice > 0])
+            # Only keep voxels belonging to sky-connected components
+            if sky_labels:
+                sky_connected = np.isin(labeled_empty, list(sky_labels))
+                empty = empty & sky_connected
+
+        # Additional filter: remove small isolated EMPTY regions by volume
+        # Small leaked regions have few voxels; legitimate regions (trenches) are larger
+        labeled_empty, num_components = label(empty)
+        if num_components > 0:
+            # Count voxels in each component
+            component_sizes = np.bincount(labeled_empty.ravel())
+            # Keep only components with more than threshold voxels
+            # Threshold scales with grid resolution: ~1% of a typical slice area
+            min_component_voxels = max(10, (nx * ny) // 100)
+            large_enough = component_sizes >= min_component_voxels
+            # Component 0 is background (non-EMPTY), always exclude
+            large_enough[0] = False
+            # Build mask of voxels in large-enough components
+            keep_mask = large_enough[labeled_empty]
+            empty = empty & keep_mask
 
         # Flood fill SOLID (all underground connected to bottom becomes SOLID)
         # But don't overwrite EMPTY
@@ -709,8 +756,18 @@ class AutoAnalysisService:
 
         merged_boxes.append(current)
 
-        # Cap the number of boxes
-        max_boxes = 30
+        # Filter out small boxes (must span at least 3 voxels in each dimension)
+        min_extent = 3
+        merged_boxes = [
+            b for b in merged_boxes
+            if (b[1] - b[0]) >= min_extent and (b[3] - b[2]) >= min_extent and (b[5] - b[4]) >= min_extent
+        ]
+
+        if not merged_boxes:
+            return constraints
+
+        # Keep only largest boxes
+        max_boxes = 15
         if len(merged_boxes) > max_boxes:
             merged_boxes.sort(
                 key=lambda b: (b[1] - b[0]) * (b[3] - b[2]) * (b[5] - b[4]),
@@ -816,8 +873,18 @@ class AutoAnalysisService:
 
         merged_boxes.append(current)
 
-        # Cap the number of boxes
-        max_boxes = 30
+        # Filter out small boxes (must span at least 3 voxels in each dimension)
+        min_extent = 3
+        merged_boxes = [
+            b for b in merged_boxes
+            if (b[1] - b[0]) >= min_extent and (b[3] - b[2]) >= min_extent and (b[5] - b[4]) >= min_extent
+        ]
+
+        if not merged_boxes:
+            return constraints
+
+        # Keep only largest boxes
+        max_boxes = 15
         if len(merged_boxes) > max_boxes:
             merged_boxes.sort(
                 key=lambda b: (b[1] - b[0]) * (b[3] - b[2]) * (b[5] - b[4]),
@@ -917,6 +984,81 @@ class AutoAnalysisService:
             empty_constraints=empty_count,
             algorithms_contributing=algorithms_contributing,
         )
+
+    def _box_intersection_fraction(self, box_a: dict, box_b: dict) -> float:
+        """Calculate what fraction of box_b's volume intersects with box_a.
+
+        Args:
+            box_a: Box constraint dict with "center" and "half_extents" keys.
+            box_b: Box constraint dict with "center" and "half_extents" keys.
+
+        Returns:
+            Fraction of box_b's volume that overlaps with box_a (0.0 to 1.0).
+        """
+        a_center = np.array(box_a["center"])
+        a_half = np.array(box_a["half_extents"])
+        b_center = np.array(box_b["center"])
+        b_half = np.array(box_b["half_extents"])
+
+        a_min, a_max = a_center - a_half, a_center + a_half
+        b_min, b_max = b_center - b_half, b_center + b_half
+
+        # Calculate intersection bounds
+        inter_min = np.maximum(a_min, b_min)
+        inter_max = np.minimum(a_max, b_max)
+
+        # Calculate intersection dimensions (0 if no overlap)
+        inter_dims = np.maximum(0, inter_max - inter_min)
+        intersection_volume = float(np.prod(inter_dims))
+
+        # Calculate box_b's volume
+        b_dims = b_max - b_min
+        b_volume = float(np.prod(b_dims))
+
+        if b_volume <= 0:
+            return 0.0
+
+        return intersection_volume / b_volume
+
+    def _simplify_constraints(
+        self, constraints: list[GeneratedConstraint], overlap_threshold: float = 0.5
+    ) -> list[GeneratedConstraint]:
+        """Remove boxes that significantly overlap with larger boxes.
+
+        Removes redundant/contradictory boxes in two cases:
+        1. Same sign: smaller box mostly inside larger box of same sign (redundant)
+        2. Opposite sign: smaller box mostly inside larger box of opposite sign (contradictory)
+
+        Args:
+            constraints: List of generated constraints.
+            overlap_threshold: Fraction of volume overlap required to remove (default 0.5).
+
+        Returns:
+            Filtered list with redundant/contradictory boxes removed.
+        """
+        # Collect all box constraints with their indices and volumes
+        boxes: list[tuple[int, GeneratedConstraint, float]] = []
+        for i, c in enumerate(constraints):
+            if c.constraint.get("type") == "box":
+                half = np.array(c.constraint["half_extents"])
+                volume = float(np.prod(half * 2))
+                boxes.append((i, c, volume))
+
+        # Find indices of smaller boxes to remove
+        remove_indices: set[int] = set()
+        for i, (_idx_a, box_a, vol_a) in enumerate(boxes):
+            for j, (idx_b, box_b, vol_b) in enumerate(boxes):
+                if i == j:
+                    continue
+                # Only consider removing smaller box when it overlaps with larger
+                if vol_b < vol_a:
+                    fraction = self._box_intersection_fraction(
+                        box_a.constraint, box_b.constraint
+                    )
+                    if fraction > overlap_threshold:
+                        remove_indices.add(idx_b)
+
+        return [c for i, c in enumerate(constraints) if i not in remove_indices]
 
     def _save_results(self, project_id: str, result: AutoAnalysisResult) -> None:
         """Save analysis results to cache."""
