@@ -17,6 +17,7 @@ from sdf_labeler_api.models.auto_analysis import (
     AlgorithmStats,
     AlgorithmType,
     AnalysisSummary,
+    AutoAnalysisOptions,
     AutoAnalysisResult,
     GeneratedConstraint,
 )
@@ -112,6 +113,7 @@ class AutoAnalysisService:
         project_id: str,
         algorithms: list[str] | None = None,
         recompute: bool = False,
+        options: AutoAnalysisOptions | None = None,
     ) -> AutoAnalysisResult:
         """Run analysis algorithms and generate constraints.
 
@@ -119,10 +121,15 @@ class AutoAnalysisService:
             project_id: Project identifier
             algorithms: List of algorithms to run (default: all)
             recompute: Force recomputation even if cached
+            options: Tunable hyperparameters for algorithms
 
         Returns:
             Analysis result with generated constraints
         """
+        # Use default options if not provided
+        if options is None:
+            options = AutoAnalysisOptions()
+
         # Check cache first
         if not recompute:
             cached = self.get_cached_result(project_id)
@@ -142,17 +149,19 @@ class AutoAnalysisService:
         algorithms_run: list[str] = []
 
         for algo_name in algo_list:
-            constraints = self._run_algorithm(algo_name, xyz, normals, project_id)
+            constraints = self._run_algorithm(algo_name, xyz, normals, project_id, options)
             if constraints:
                 all_constraints.extend(constraints)
                 algorithms_run.append(algo_name)
                 algorithm_stats[algo_name] = AlgorithmStats(
                     constraints_generated=len(constraints),
-                    coverage_description=self._get_algorithm_description(algo_name, len(constraints)),
+                    coverage_description=self._get_algorithm_description(
+                        algo_name, len(constraints)
+                    ),
                 )
 
         # Remove redundant contained boxes
-        all_constraints = self._simplify_constraints(all_constraints)
+        all_constraints = self._simplify_constraints(all_constraints, options.overlap_threshold)
 
         # Compute summary
         summary = self._compute_summary(all_constraints, len(algorithm_stats))
@@ -179,16 +188,19 @@ class AutoAnalysisService:
         xyz: np.ndarray,
         normals: np.ndarray | None,
         project_id: str,
+        options: AutoAnalysisOptions,
     ) -> list[GeneratedConstraint]:
         """Run a single analysis algorithm."""
         if name == AlgorithmType.POCKET.value:
             return self._generate_pocket_constraints(project_id)
         elif name == AlgorithmType.NORMAL_OFFSET.value:
-            return self._generate_normal_offset_boxes(xyz, normals)
+            return self._generate_normal_offset_boxes(xyz, normals, options)
         elif name == AlgorithmType.FLOOD_FILL.value:
-            return self._generate_flood_fill_constraints(xyz, normals)
+            return self._generate_flood_fill_constraints(xyz, normals, options)
         elif name == AlgorithmType.VOXEL_REGIONS.value:
-            return self._generate_voxel_region_constraints(xyz, normals)
+            return self._generate_voxel_region_constraints(xyz, normals, options)
+        elif name == AlgorithmType.NORMAL_IDW.value:
+            return self._generate_idw_normal_samples(xyz, normals, options)
         return []
 
     def _generate_pocket_constraints(self, project_id: str) -> list[GeneratedConstraint]:
@@ -217,17 +229,19 @@ class AutoAnalysisService:
                 "volume_estimate": pocket.volume_estimate,
             }
 
-            constraints.append(GeneratedConstraint(
-                constraint=pocket_constraint,
-                algorithm=AlgorithmType.POCKET,
-                confidence=0.95,  # Pockets are highly reliable
-                description=f"Interior cavity at ({pocket.centroid[0]:.2f}, {pocket.centroid[1]:.2f}, {pocket.centroid[2]:.2f}), {pocket.voxel_count} voxels",
-            ))
+            constraints.append(
+                GeneratedConstraint(
+                    constraint=pocket_constraint,
+                    algorithm=AlgorithmType.POCKET,
+                    confidence=0.95,  # Pockets are highly reliable
+                    description=f"Interior cavity at ({pocket.centroid[0]:.2f}, {pocket.centroid[1]:.2f}, {pocket.centroid[2]:.2f}), {pocket.voxel_count} voxels",
+                )
+            )
 
         return constraints
 
     def _generate_normal_offset_boxes(
-        self, xyz: np.ndarray, normals: np.ndarray | None, n_pairs: int = 40
+        self, xyz: np.ndarray, normals: np.ndarray | None, options: AutoAnalysisOptions
     ) -> list[GeneratedConstraint]:
         """Generate paired SOLID/EMPTY boxes offset along surface normals.
 
@@ -247,7 +261,7 @@ class AutoAnalysisService:
         mean_spacing = self._estimate_mean_spacing(xyz, tree)
 
         # Select points that are well-distributed (farthest point sampling)
-        sample_indices = self._farthest_point_sample(xyz, n_pairs)
+        sample_indices = self._farthest_point_sample(xyz, options.normal_offset_pairs)
         # Larger offset and box sizes for better coverage
         offset_distance = mean_spacing * 3
         box_size = mean_spacing * 2.5
@@ -271,12 +285,14 @@ class AutoAnalysisService:
                 "half_extents": (box_size, box_size, box_size),
             }
 
-            constraints.append(GeneratedConstraint(
-                constraint=box_constraint_empty,
-                algorithm=AlgorithmType.NORMAL_OFFSET,
-                confidence=0.75,
-                description=f"Exterior offset from surface at ({point[0]:.2f}, {point[1]:.2f}, {point[2]:.2f})",
-            ))
+            constraints.append(
+                GeneratedConstraint(
+                    constraint=box_constraint_empty,
+                    algorithm=AlgorithmType.NORMAL_OFFSET,
+                    confidence=0.75,
+                    description=f"Exterior offset from surface at ({point[0]:.2f}, {point[1]:.2f}, {point[2]:.2f})",
+                )
+            )
 
             # Create SOLID box in -normal direction (inward)
             solid_center = point - normal * offset_distance
@@ -287,18 +303,18 @@ class AutoAnalysisService:
                 "half_extents": (box_size, box_size, box_size),
             }
 
-            constraints.append(GeneratedConstraint(
-                constraint=box_constraint_solid,
-                algorithm=AlgorithmType.NORMAL_OFFSET,
-                confidence=0.75,
-                description=f"Interior offset from surface at ({point[0]:.2f}, {point[1]:.2f}, {point[2]:.2f})",
-            ))
+            constraints.append(
+                GeneratedConstraint(
+                    constraint=box_constraint_solid,
+                    algorithm=AlgorithmType.NORMAL_OFFSET,
+                    confidence=0.75,
+                    description=f"Interior offset from surface at ({point[0]:.2f}, {point[1]:.2f}, {point[2]:.2f})",
+                )
+            )
 
         return constraints
 
-    def _find_dominant_ground_z(
-        self, xyz: np.ndarray, normals: np.ndarray | None
-    ) -> float | None:
+    def _find_dominant_ground_z(self, xyz: np.ndarray, normals: np.ndarray | None) -> float | None:
         """Find dominant ground Z by maximum XY footprint of horizontal surfaces.
 
         For outdoor scenes with trenches/hollows, the surrounding ground covers
@@ -358,27 +374,22 @@ class AutoAnalysisService:
 
         return best_z
 
-    # Default minimum gap size (meters) - gaps smaller than this may be blocked
-    MIN_GAP_SIZE_DEFAULT = 0.10  # 10cm, typical pipe clearance
-
     def _build_voxel_grid(
         self,
         xyz: np.ndarray,
+        options: AutoAnalysisOptions,
         voxel_size: float | None = None,
         z_extension: float | None = None,
-        min_gap_size: float | None = None,
     ) -> tuple[np.ndarray, np.ndarray, float, tuple[int, int, int]] | None:
         """Build a voxel grid from point cloud data.
 
         Args:
             xyz: Point cloud coordinates
+            options: Tunable hyperparameters including min_gap_size and max_grid_dim
             voxel_size: Optional voxel size (auto-computed if None)
             z_extension: How much to extend the grid above the point cloud in +Z.
                          For outdoor scenes, this creates "sky" space above ground.
                          If None, defaults to 50% of scene Z range (min 5 voxels).
-            min_gap_size: Minimum physical gap (meters) that flood fill should pass through.
-                          Voxel size is constrained to ensure gaps this size span ≥3 voxels.
-                          Default: 0.10m (10cm).
 
         Returns:
             Tuple of (occupied grid, bbox_min, voxel_size, grid_shape) or None if invalid.
@@ -386,8 +397,8 @@ class AutoAnalysisService:
         if len(xyz) < 10:
             return None
 
-        if min_gap_size is None:
-            min_gap_size = self.MIN_GAP_SIZE_DEFAULT
+        min_gap_size = options.min_gap_size
+        max_dim = options.max_grid_dim
 
         # Determine voxel size based on point cloud density
         tree = KDTree(xyz)
@@ -430,8 +441,7 @@ class AutoAnalysisService:
         if np.any(grid_shape <= 0):
             return None
 
-        # Cap grid size for performance (200³ = 8M voxels, reasonable for modern hardware)
-        max_dim = 200
+        # Cap grid size for performance
         vs: float = voxel_size  # Local float variable for type safety
         if grid_shape.max() > max_dim:
             scale = float(max_dim / grid_shape.max())
@@ -452,11 +462,19 @@ class AutoAnalysisService:
         occupied = binary_dilation(occupied, structure, iterations=1)
 
         # Convert grid_shape to proper tuple type
-        shape_tuple: tuple[int, int, int] = (int(grid_shape[0]), int(grid_shape[1]), int(grid_shape[2]))
+        shape_tuple: tuple[int, int, int] = (
+            int(grid_shape[0]),
+            int(grid_shape[1]),
+            int(grid_shape[2]),
+        )
         return occupied, bbox_min, vs, shape_tuple
 
     def _compute_hull_mask(
-        self, xyz: np.ndarray, bbox_min: np.ndarray, voxel_size: float, grid_shape: tuple[int, int, int]
+        self,
+        xyz: np.ndarray,
+        bbox_min: np.ndarray,
+        voxel_size: float,
+        grid_shape: tuple[int, int, int],
     ) -> np.ndarray:
         """Compute a 2D mask of which XY voxel positions are inside the convex hull.
 
@@ -493,7 +511,7 @@ class AutoAnalysisService:
         occupied: np.ndarray,
         grid_shape: tuple[int, int, int],
         inside_hull: np.ndarray,
-        cone_angle_degrees: float = 15.0,
+        cone_angle_degrees: float,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Propagate EMPTY/SOLID using ray model with cone angles and flood fill.
 
@@ -521,15 +539,15 @@ class AutoAnalysisService:
 
         # 9 directions: straight + 4 cardinal + 4 diagonal
         ray_tilts = [
-            (0.0, 0.0),          # straight
-            (tan_angle, 0.0),    # +X
-            (-tan_angle, 0.0),   # -X
-            (0.0, tan_angle),    # +Y
-            (0.0, -tan_angle),   # -Y
-            (diag, diag),        # +X+Y
-            (diag, -diag),       # +X-Y
-            (-diag, diag),       # -X+Y
-            (-diag, -diag),      # -X-Y
+            (0.0, 0.0),  # straight
+            (tan_angle, 0.0),  # +X
+            (-tan_angle, 0.0),  # -X
+            (0.0, tan_angle),  # +Y
+            (0.0, -tan_angle),  # -Y
+            (diag, diag),  # +X+Y
+            (diag, -diag),  # +X-Y
+            (-diag, diag),  # -X+Y
+            (-diag, -diag),  # -X-Y
         ]
 
         # EMPTY rays from sky (top-down with cone)
@@ -570,9 +588,12 @@ class AutoAnalysisService:
         # SOLID flood fills from initial SOLID voxels (any connected underground = SOLID)
         # Both are blocked by occupied voxels (surface)
         directions = [
-            (1, 0, 0), (-1, 0, 0),
-            (0, 1, 0), (0, -1, 0),
-            (0, 0, 1), (0, 0, -1),
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
         ]
 
         # Compute per-column floor: lowest occupied Z for each XY column
@@ -636,9 +657,11 @@ class AutoAnalysisService:
             for dx, dy, dz in directions:
                 nx_, ny_, nz_ = ix + dx, iy + dy, iz + dz
                 if 0 <= nx_ < nx and 0 <= ny_ < ny and 0 <= nz_ < nz:
-                    if (not occupied[nx_, ny_, nz_] and
-                        not empty[nx_, ny_, nz_] and
-                        not solid[nx_, ny_, nz_]):
+                    if (
+                        not occupied[nx_, ny_, nz_]
+                        and not empty[nx_, ny_, nz_]
+                        and not solid[nx_, ny_, nz_]
+                    ):
                         solid[nx_, ny_, nz_] = True
                         solid_stack.append((nx_, ny_, nz_))
 
@@ -687,7 +710,7 @@ class AutoAnalysisService:
         return boxes
 
     def _generate_flood_fill_constraints(
-        self, xyz: np.ndarray, _normals: np.ndarray | None
+        self, xyz: np.ndarray, _normals: np.ndarray | None, options: AutoAnalysisOptions
     ) -> list[GeneratedConstraint]:
         """Generate EMPTY box constraints using ray propagation with bouncing.
 
@@ -701,7 +724,7 @@ class AutoAnalysisService:
         """
         constraints: list[GeneratedConstraint] = []
 
-        grid_result = self._build_voxel_grid(xyz)
+        grid_result = self._build_voxel_grid(xyz, options)
         if grid_result is None:
             return constraints
 
@@ -713,7 +736,7 @@ class AutoAnalysisService:
 
         # Use ray propagation with bouncing
         empty_mask, _ = self._ray_propagation_with_bounces(
-            occupied, grid_shape, inside_hull
+            occupied, grid_shape, inside_hull, options.cone_angle
         )
 
         # Decompose each Z-slice into rectangles using greedy meshing
@@ -759,15 +782,18 @@ class AutoAnalysisService:
         # Filter out small boxes (must span at least 3 voxels in each dimension)
         min_extent = 3
         merged_boxes = [
-            b for b in merged_boxes
-            if (b[1] - b[0]) >= min_extent and (b[3] - b[2]) >= min_extent and (b[5] - b[4]) >= min_extent
+            b
+            for b in merged_boxes
+            if (b[1] - b[0]) >= min_extent
+            and (b[3] - b[2]) >= min_extent
+            and (b[5] - b[4]) >= min_extent
         ]
 
         if not merged_boxes:
             return constraints
 
         # Keep only largest boxes
-        max_boxes = 15
+        max_boxes = options.max_boxes
         if len(merged_boxes) > max_boxes:
             merged_boxes.sort(
                 key=lambda b: (b[1] - b[0]) * (b[3] - b[2]) * (b[5] - b[4]),
@@ -804,7 +830,7 @@ class AutoAnalysisService:
         return constraints
 
     def _generate_voxel_region_constraints(
-        self, xyz: np.ndarray, _normals: np.ndarray | None
+        self, xyz: np.ndarray, _normals: np.ndarray | None, options: AutoAnalysisOptions
     ) -> list[GeneratedConstraint]:
         """Generate SOLID box constraints for underground regions.
 
@@ -817,7 +843,7 @@ class AutoAnalysisService:
         """
         constraints: list[GeneratedConstraint] = []
 
-        grid_result = self._build_voxel_grid(xyz)
+        grid_result = self._build_voxel_grid(xyz, options)
         if grid_result is None:
             return constraints
 
@@ -829,7 +855,7 @@ class AutoAnalysisService:
 
         # Use directional Z-propagation
         _, solid_mask = self._ray_propagation_with_bounces(
-            occupied, grid_shape, inside_hull
+            occupied, grid_shape, inside_hull, options.cone_angle
         )
 
         # Decompose each Z-slice into rectangles using greedy meshing
@@ -876,15 +902,18 @@ class AutoAnalysisService:
         # Filter out small boxes (must span at least 3 voxels in each dimension)
         min_extent = 3
         merged_boxes = [
-            b for b in merged_boxes
-            if (b[1] - b[0]) >= min_extent and (b[3] - b[2]) >= min_extent and (b[5] - b[4]) >= min_extent
+            b
+            for b in merged_boxes
+            if (b[1] - b[0]) >= min_extent
+            and (b[3] - b[2]) >= min_extent
+            and (b[5] - b[4]) >= min_extent
         ]
 
         if not merged_boxes:
             return constraints
 
         # Keep only largest boxes
-        max_boxes = 15
+        max_boxes = options.max_boxes
         if len(merged_boxes) > max_boxes:
             merged_boxes.sort(
                 key=lambda b: (b[1] - b[0]) * (b[3] - b[2]) * (b[5] - b[4]),
@@ -909,14 +938,115 @@ class AutoAnalysisService:
 
             volume = float(np.prod(half_extents * 2))
             n_voxels = (z_end - z_start) * (x_max - x_min) * (y_max - y_min)
-            constraints.append(GeneratedConstraint(
-                constraint=box_constraint,
-                algorithm=AlgorithmType.VOXEL_REGIONS,
-                confidence=0.85,
-                description=f"Underground region ({n_voxels} voxels, {volume:.2f}m³)",
-            ))
+            constraints.append(
+                GeneratedConstraint(
+                    constraint=box_constraint,
+                    algorithm=AlgorithmType.VOXEL_REGIONS,
+                    confidence=0.85,
+                    description=f"Underground region ({n_voxels} voxels, {volume:.2f}m³)",
+                )
+            )
 
         return constraints
+
+    def _generate_idw_normal_samples(
+        self, xyz: np.ndarray, normals: np.ndarray | None, options: AutoAnalysisOptions
+    ) -> list[GeneratedConstraint]:
+        """Generate sample constraints along normals with inverse distance weighting.
+
+        Creates point samples at varying distances along surface normals, with
+        more samples concentrated near the surface (IDW = 1/distance^power).
+
+        Returns sample_point constraints for direct training use.
+        """
+        constraints: list[GeneratedConstraint] = []
+
+        if normals is None or len(normals) != len(xyz):
+            return constraints
+
+        # Orient normals to point "outward" using viewpoint heuristic
+        # For outdoor/ground scenes, we assume viewing from above, so normals
+        # should generally point upward (positive Z) for horizontal surfaces
+        oriented_normals = self._orient_normals_outward(xyz, normals)
+
+        # Sample representative surface points (farthest-point sampling)
+        n_surface_pts = min(options.idw_sample_count // 10, len(xyz))
+        if n_surface_pts < 1:
+            return constraints
+
+        surface_indices = self._farthest_point_sample(xyz, n_surface_pts)
+        samples_per_point = options.idw_sample_count // len(surface_indices)
+
+        if samples_per_point < 1:
+            samples_per_point = 1
+
+        for idx in surface_indices:
+            point = xyz[idx]
+            normal = oriented_normals[idx]
+            normal_norm = np.linalg.norm(normal)
+            if normal_norm < 0.1:
+                continue
+            normal = normal / normal_norm
+
+            # Generate distances with IDW distribution
+            # More samples near 0, fewer at max_distance
+            u = np.random.random(samples_per_point)
+            # Inverse CDF for power-law distribution: closer to surface = more samples
+            distances = options.idw_max_distance * (1 - u ** (1 / options.idw_power))
+
+            for dist in distances:
+                # Randomly choose positive or negative offset
+                sign = np.random.choice([-1, 1])
+                sample_pos = point + sign * dist * normal
+                sample_sign = "empty" if sign > 0 else "solid"
+
+                constraints.append(
+                    GeneratedConstraint(
+                        constraint={
+                            "type": "sample_point",
+                            "sign": sample_sign,
+                            "position": tuple(sample_pos.tolist()),
+                            "distance": float(sign * dist),
+                        },
+                        algorithm=AlgorithmType.NORMAL_IDW,
+                        confidence=0.8,
+                        description=f"IDW sample at d={sign * dist:.3f}m",
+                    )
+                )
+
+        return constraints
+
+    def _orient_normals_outward(
+        self, xyz: np.ndarray, normals: np.ndarray
+    ) -> np.ndarray:
+        """Orient normals to point outward using a viewpoint heuristic.
+
+        Uses a simple but effective heuristic: the viewpoint is assumed to be
+        at the centroid of the point cloud but elevated above it. Normals are
+        flipped to point toward this viewpoint.
+
+        This works well for outdoor scenes, trenches, and excavations where
+        the camera/viewer is typically above the scene.
+        """
+        # Compute centroid and place viewpoint above it
+        centroid = xyz.mean(axis=0)
+        z_range = xyz[:, 2].max() - xyz[:, 2].min()
+        # Place viewpoint well above the scene
+        viewpoint = centroid.copy()
+        viewpoint[2] = xyz[:, 2].max() + z_range * 0.5
+
+        # Compute vectors from each point to the viewpoint
+        to_viewpoint = viewpoint - xyz  # Shape: (N, 3)
+
+        # Check if normal points toward viewpoint (dot product > 0)
+        dot_products = np.sum(normals * to_viewpoint, axis=1)
+
+        # Flip normals that point away from viewpoint
+        oriented = normals.copy()
+        flip_mask = dot_products < 0
+        oriented[flip_mask] = -oriented[flip_mask]
+
+        return oriented
 
     def _farthest_point_sample(self, xyz: np.ndarray, n_samples: int) -> list[int]:
         """Select well-distributed points using farthest point sampling."""
@@ -968,6 +1098,7 @@ class AutoAnalysisService:
             AlgorithmType.NORMAL_OFFSET.value: f"Generated {count} surface offset constraints",
             AlgorithmType.FLOOD_FILL.value: f"Found {count} sky-reachable exterior regions",
             AlgorithmType.VOXEL_REGIONS.value: f"Found {count} underground solid regions",
+            AlgorithmType.NORMAL_IDW.value: f"Generated {count} IDW normal samples",
         }
         return descriptions.get(algo_name, f"Generated {count} constraints")
 
@@ -975,8 +1106,12 @@ class AutoAnalysisService:
         self, constraints: list[GeneratedConstraint], algorithms_contributing: int
     ) -> AnalysisSummary:
         """Compute summary statistics from generated constraints."""
-        solid_count = sum(1 for c in constraints if c.constraint.get("sign") == SignConvention.SOLID.value)
-        empty_count = sum(1 for c in constraints if c.constraint.get("sign") == SignConvention.EMPTY.value)
+        solid_count = sum(
+            1 for c in constraints if c.constraint.get("sign") == SignConvention.SOLID.value
+        )
+        empty_count = sum(
+            1 for c in constraints if c.constraint.get("sign") == SignConvention.EMPTY.value
+        )
 
         return AnalysisSummary(
             total_constraints=len(constraints),
@@ -1052,9 +1187,7 @@ class AutoAnalysisService:
                     continue
                 # Only consider removing smaller box when it overlaps with larger
                 if vol_b < vol_a:
-                    fraction = self._box_intersection_fraction(
-                        box_a.constraint, box_b.constraint
-                    )
+                    fraction = self._box_intersection_fraction(box_a.constraint, box_b.constraint)
                     if fraction > overlap_threshold:
                         remove_indices.add(idx_b)
 
