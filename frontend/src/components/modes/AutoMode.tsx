@@ -366,6 +366,22 @@ export function AutoMode({
         </div>
       )}
 
+      {/* Hull Filtering */}
+      <div className="space-y-2 border-t border-gray-700 pt-3">
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={options.hull_filter_enabled}
+            onChange={(e) => onSetOptions({ hull_filter_enabled: e.target.checked })}
+            className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+          />
+          <span className="text-gray-300">Filter by X-Y Hull</span>
+          <span className="text-gray-500 text-xs ml-auto">
+            Remove constraints outside footprint
+          </span>
+        </label>
+      </div>
+
       {/* Algorithm selection */}
       <div className="space-y-2">
         <div className="text-xs text-gray-400 font-medium">Algorithms to run:</div>

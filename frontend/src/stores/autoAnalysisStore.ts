@@ -57,6 +57,9 @@ export interface AutoAnalysisOptions {
   idw_sample_count: number; // 100-10000, default 1000
   idw_max_distance: number; // 0.05-2.0, default 0.5
   idw_power: number; // 0.5-4.0, default 2.0
+
+  // Hull filtering - removes constraints outside X-Y convex hull
+  hull_filter_enabled: boolean; // default true
 }
 
 export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
@@ -68,6 +71,7 @@ export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
   idw_sample_count: 1000,
   idw_max_distance: 0.5,
   idw_power: 2.0,
+  hull_filter_enabled: true,
 };
 
 interface AutoAnalysisState {

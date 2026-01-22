@@ -163,6 +163,10 @@ class AutoAnalysisService:
         # Remove redundant contained boxes
         all_constraints = self._simplify_constraints(all_constraints, options.overlap_threshold)
 
+        # Filter out constraints outside the X-Y convex hull of point cloud
+        if options.hull_filter_enabled:
+            all_constraints = self._filter_outside_hull(all_constraints, xyz)
+
         # Compute summary
         summary = self._compute_summary(all_constraints, len(algorithm_stats))
 
@@ -1192,6 +1196,105 @@ class AutoAnalysisService:
                         remove_indices.add(idx_b)
 
         return [c for i, c in enumerate(constraints) if i not in remove_indices]
+
+    def _filter_outside_hull(
+        self, constraints: list[GeneratedConstraint], xyz: np.ndarray
+    ) -> list[GeneratedConstraint]:
+        """Filter out constraints whose center falls outside the X-Y convex hull.
+
+        Projects point cloud to X-Y plane, computes convex hull, and removes
+        any constraints with centers outside this 2D hull. This filters out
+        constraints in void regions outside the point cloud footprint.
+
+        Args:
+            constraints: List of generated constraints.
+            xyz: Point cloud positions (N, 3).
+
+        Returns:
+            Filtered list with out-of-hull constraints removed.
+        """
+        if len(constraints) == 0 or len(xyz) < 3:
+            return constraints
+
+        # Project to X-Y plane
+        xy = xyz[:, :2]
+
+        # Compute 2D convex hull
+        try:
+            from scipy.spatial import ConvexHull
+
+            hull = ConvexHull(xy)
+            hull_points = xy[hull.vertices]
+        except Exception:
+            # If hull computation fails (e.g., collinear points), keep all
+            return constraints
+
+        # Filter constraints
+        filtered: list[GeneratedConstraint] = []
+        for constraint in constraints:
+            c = constraint.constraint
+            c_type = c.get("type")
+
+            # Get center point for this constraint
+            center_xy = self._get_constraint_center_xy(c, c_type)
+            if center_xy is None:
+                # Keep constraints we can't check
+                filtered.append(constraint)
+                continue
+
+            # Check if center is inside the convex hull
+            if self._point_in_convex_hull(center_xy, hull_points):
+                filtered.append(constraint)
+
+        return filtered
+
+    def _get_constraint_center_xy(
+        self, constraint: dict, c_type: str | None
+    ) -> np.ndarray | None:
+        """Get the X-Y center of a constraint for hull checking."""
+        center = None
+
+        if c_type == "box":
+            center = constraint.get("center")
+        elif c_type == "sample_point":
+            center = constraint.get("position")
+        elif c_type == "sphere":
+            center = constraint.get("center")
+        elif c_type == "pocket":
+            center = constraint.get("centroid")
+        else:
+            # Try common fields
+            for field in ["center", "position", "point", "centroid"]:
+                if field in constraint:
+                    center = constraint[field]
+                    break
+
+        if center is None:
+            return None
+
+        return np.array(center[:2])  # Just X-Y
+
+    def _point_in_convex_hull(self, point: np.ndarray, hull_vertices: np.ndarray) -> bool:
+        """Check if a 2D point is inside a convex hull defined by its vertices.
+
+        Uses the cross product method: a point is inside if it's on the same
+        side of all edges (all cross products have same sign).
+        """
+        n = len(hull_vertices)
+        for i in range(n):
+            v1 = hull_vertices[i]
+            v2 = hull_vertices[(i + 1) % n]
+
+            # Cross product of edge vector and point vector
+            edge = v2 - v1
+            to_point = point - v1
+            cross = edge[0] * to_point[1] - edge[1] * to_point[0]
+
+            # If cross product is negative, point is outside (assumes CCW vertices)
+            if cross < 0:
+                return False
+
+        return True
 
     def _save_results(self, project_id: str, result: AutoAnalysisResult) -> None:
         """Save analysis results to cache."""
