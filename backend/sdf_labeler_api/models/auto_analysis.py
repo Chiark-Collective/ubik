@@ -76,10 +76,16 @@ class AutoAnalysisOptions(BaseModel):
         description="IDW power factor (higher = more weight near surface)",
     )
 
-    # Hull filtering - removes constraints outside X-Y convex hull of point cloud
+    # Hull filtering - removes constraints outside X-Y alpha shape of point cloud
     hull_filter_enabled: bool = Field(
         default=True,
-        description="Filter out constraints outside the X-Y convex hull of point cloud",
+        description="Filter out constraints outside the X-Y alpha shape of point cloud",
+    )
+    hull_alpha: float = Field(
+        default=2.0,
+        ge=0.1,
+        le=20.0,
+        description="Alpha shape parameter (smaller = tighter fit to concave boundaries)",
     )
 
 

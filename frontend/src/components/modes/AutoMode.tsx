@@ -375,11 +375,24 @@ export function AutoMode({
             onChange={(e) => onSetOptions({ hull_filter_enabled: e.target.checked })}
             className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
           />
-          <span className="text-gray-300">Filter by X-Y Hull</span>
+          <span className="text-gray-300">Filter by Alpha Shape</span>
           <span className="text-gray-500 text-xs ml-auto">
             Remove constraints outside footprint
           </span>
         </label>
+        {options.hull_filter_enabled && (
+          <div className="ml-5">
+            <OptionsSlider
+              label="Alpha (tightness)"
+              value={options.hull_alpha}
+              min={0.1}
+              max={20.0}
+              step={0.1}
+              defaultValue={DEFAULT_OPTIONS.hull_alpha}
+              onChange={(v) => onSetOptions({ hull_alpha: v })}
+            />
+          </div>
+        )}
       </div>
 
       {/* Algorithm selection */}

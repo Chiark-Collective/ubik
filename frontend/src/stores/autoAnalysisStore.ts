@@ -58,8 +58,9 @@ export interface AutoAnalysisOptions {
   idw_max_distance: number; // 0.05-2.0, default 0.5
   idw_power: number; // 0.5-4.0, default 2.0
 
-  // Hull filtering - removes constraints outside X-Y convex hull
+  // Hull filtering - removes constraints outside X-Y alpha shape
   hull_filter_enabled: boolean; // default true
+  hull_alpha: number; // 0.1-20.0, default 2.0 (smaller = tighter fit)
 }
 
 export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
@@ -72,6 +73,7 @@ export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
   idw_max_distance: 0.5,
   idw_power: 2.0,
   hull_filter_enabled: true,
+  hull_alpha: 2.0,
 };
 
 interface AutoAnalysisState {

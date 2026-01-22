@@ -163,9 +163,9 @@ class AutoAnalysisService:
         # Remove redundant contained boxes
         all_constraints = self._simplify_constraints(all_constraints, options.overlap_threshold)
 
-        # Filter out constraints outside the X-Y convex hull of point cloud
+        # Filter out constraints outside the X-Y alpha shape of point cloud
         if options.hull_filter_enabled:
-            all_constraints = self._filter_outside_hull(all_constraints, xyz)
+            all_constraints = self._filter_outside_hull(all_constraints, xyz, options.hull_alpha)
 
         # Compute summary
         summary = self._compute_summary(all_constraints, len(algorithm_stats))
@@ -1198,20 +1198,21 @@ class AutoAnalysisService:
         return [c for i, c in enumerate(constraints) if i not in remove_indices]
 
     def _filter_outside_hull(
-        self, constraints: list[GeneratedConstraint], xyz: np.ndarray
+        self, constraints: list[GeneratedConstraint], xyz: np.ndarray, alpha: float
     ) -> list[GeneratedConstraint]:
-        """Filter out constraints whose center falls outside the X-Y convex hull.
+        """Filter out constraints whose center falls outside the X-Y alpha shape.
 
-        Projects point cloud to X-Y plane, computes convex hull, and removes
-        any constraints with centers outside this 2D hull. This filters out
-        constraints in void regions outside the point cloud footprint.
+        Projects point cloud to X-Y plane, computes alpha shape (concave hull),
+        and removes any constraints with centers outside. This filters out
+        constraints in void regions, including concave voids like L-shaped gaps.
 
         Args:
             constraints: List of generated constraints.
             xyz: Point cloud positions (N, 3).
+            alpha: Alpha shape parameter (smaller = tighter fit to concavities).
 
         Returns:
-            Filtered list with out-of-hull constraints removed.
+            Filtered list with out-of-shape constraints removed.
         """
         if len(constraints) == 0 or len(xyz) < 3:
             return constraints
@@ -1219,14 +1220,18 @@ class AutoAnalysisService:
         # Project to X-Y plane
         xy = xyz[:, :2]
 
-        # Compute 2D convex hull
+        # Compute alpha shape (concave hull)
         try:
-            from scipy.spatial import ConvexHull
+            import alphashape
+            from shapely.geometry import Point
 
-            hull = ConvexHull(xy)
-            hull_points = xy[hull.vertices]
+            # alphashape returns a shapely Polygon or MultiPolygon
+            shape = alphashape.alphashape(xy, alpha)
+            if shape is None or shape.is_empty:
+                # Fall back to keeping all if alpha shape fails
+                return constraints
         except Exception:
-            # If hull computation fails (e.g., collinear points), keep all
+            # If alpha shape computation fails, keep all
             return constraints
 
         # Filter constraints
@@ -1242,8 +1247,9 @@ class AutoAnalysisService:
                 filtered.append(constraint)
                 continue
 
-            # Check if center is inside the convex hull
-            if self._point_in_convex_hull(center_xy, hull_points):
+            # Check if center is inside the alpha shape
+            point = Point(center_xy[0], center_xy[1])
+            if shape.contains(point) or shape.touches(point):
                 filtered.append(constraint)
 
         return filtered
@@ -1273,28 +1279,6 @@ class AutoAnalysisService:
             return None
 
         return np.array(center[:2])  # Just X-Y
-
-    def _point_in_convex_hull(self, point: np.ndarray, hull_vertices: np.ndarray) -> bool:
-        """Check if a 2D point is inside a convex hull defined by its vertices.
-
-        Uses the cross product method: a point is inside if it's on the same
-        side of all edges (all cross products have same sign).
-        """
-        n = len(hull_vertices)
-        for i in range(n):
-            v1 = hull_vertices[i]
-            v2 = hull_vertices[(i + 1) % n]
-
-            # Cross product of edge vector and point vector
-            edge = v2 - v1
-            to_point = point - v1
-            cross = edge[0] * to_point[1] - edge[1] * to_point[0]
-
-            # If cross product is negative, point is outside (assumes CCW vertices)
-            if cross < 0:
-                return False
-
-        return True
 
     def _save_results(self, project_id: str, result: AutoAnalysisResult) -> None:
         """Save analysis results to cache."""
