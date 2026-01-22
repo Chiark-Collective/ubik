@@ -50,6 +50,9 @@ function Scene() {
     (c): c is SamplePointConstraint => c.type === "sample_point"
   );
 
+  // Debug: log constraint counts
+  console.log(`[App] Total constraints: ${constraints.length}, sample_point: ${samplePointConstraints.length}`);
+
   // Navigation always available via right-click (rotate) and middle-click (pan)
   // Left-click is reserved for tool interactions
 

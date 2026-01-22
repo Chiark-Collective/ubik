@@ -23,6 +23,9 @@ export function SamplePointViewer({
   visible = true,
   pointSize = 0.02,
 }: SamplePointViewerProps) {
+  // Debug: log constraints received
+  console.log(`[SamplePointViewer] Received ${constraints.length} constraints, visible=${visible}`);
+
   // Separate points by sign for different colors
   const { solidPositions, emptyPositions } = useMemo(() => {
     const solid: number[] = [];

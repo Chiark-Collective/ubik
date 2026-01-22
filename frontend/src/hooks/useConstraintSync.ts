@@ -88,11 +88,15 @@ function transformConstraint(backend: BackendConstraint): Constraint {
         position: [number, number, number];
         distance: number;
       };
+      // Debug: log sample_point transformation
+      if (!samplePoint.position) {
+        console.warn("[useConstraintSync] sample_point missing position:", backend);
+      }
       return {
         ...base,
         type: "sample_point",
-        position: samplePoint.position,
-        distance: samplePoint.distance,
+        position: samplePoint.position || [0, 0, 0],
+        distance: samplePoint.distance || 0,
       } as Constraint;
     }
 
