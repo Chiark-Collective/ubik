@@ -1,8 +1,8 @@
 // ABOUTME: Left sidebar panel for project and file management
 // ABOUTME: Allows creating projects and uploading point clouds
 
-import { useState, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   PlusIcon,
   FileIcon,
@@ -10,11 +10,11 @@ import {
   UploadIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
-} from '@radix-ui/react-icons'
-import * as Dialog from '@radix-ui/react-dialog'
+} from "@radix-ui/react-icons";
+import * as Dialog from "@radix-ui/react-dialog";
 
-import { useProjectStore } from '../../stores/projectStore'
-import { toast } from '../../stores/toastStore'
+import { useProjectStore } from "../../stores/projectStore";
+import { toast } from "../../stores/toastStore";
 import {
   listProjects,
   createProject,
@@ -25,20 +25,20 @@ import {
   loadScenario,
   type ProjectCreate,
   type UploadProgress,
-} from '../../services/api'
+} from "../../services/api";
 
 export function ProjectPanel() {
-  const [collapsed, setCollapsed] = useState(false)
-  const currentProjectId = useProjectStore((s) => s.currentProjectId)
-  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
+  const [collapsed, setCollapsed] = useState(false);
+  const currentProjectId = useProjectStore((s) => s.currentProjectId);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
 
   // Fetch projects from backend
   const { data, isLoading } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ["projects"],
     queryFn: listProjects,
-  })
+  });
 
-  const projects = data?.projects ?? []
+  const projects = data?.projects ?? [];
 
   // Collapsed state - just show toggle button
   if (collapsed) {
@@ -52,7 +52,7 @@ export function ProjectPanel() {
           <ChevronRightIcon className="w-5 h-5" />
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -103,7 +103,9 @@ export function ProjectPanel() {
           <DataSourceTabs projectId={currentProjectId} />
         ) : (
           <div className="p-4">
-            <p className="text-xs text-gray-500 mb-2">Select or create a project to load data</p>
+            <p className="text-xs text-gray-500 mb-2">
+              Select or create a project to load data
+            </p>
             <button
               className="w-full px-3 py-2 text-xs font-medium text-gray-400 bg-gray-800 rounded hover:bg-gray-700 transition-colors"
               disabled
@@ -114,14 +116,14 @@ export function ProjectPanel() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
-type DataSourceTab = 'upload' | 'scenarios'
+type DataSourceTab = "upload" | "scenarios";
 
 function DataSourceTabs({ projectId }: { projectId: string }) {
   // Default to scenarios tab for easier discovery
-  const [activeTab, setActiveTab] = useState<DataSourceTab>('scenarios')
+  const [activeTab, setActiveTab] = useState<DataSourceTab>("scenarios");
 
   return (
     <div>
@@ -129,21 +131,21 @@ function DataSourceTabs({ projectId }: { projectId: string }) {
       <div className="flex border-b border-gray-800">
         <button
           className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-            activeTab === 'upload'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-gray-500 hover:text-gray-300'
+            activeTab === "upload"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-500 hover:text-gray-300"
           }`}
-          onClick={() => setActiveTab('upload')}
+          onClick={() => setActiveTab("upload")}
         >
           Upload File
         </button>
         <button
           className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-            activeTab === 'scenarios'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-gray-500 hover:text-gray-300'
+            activeTab === "scenarios"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-500 hover:text-gray-300"
           }`}
-          onClick={() => setActiveTab('scenarios')}
+          onClick={() => setActiveTab("scenarios")}
         >
           Demo Data ✨
         </button>
@@ -151,54 +153,54 @@ function DataSourceTabs({ projectId }: { projectId: string }) {
 
       {/* Tab content */}
       <div className="p-4">
-        {activeTab === 'upload' ? (
+        {activeTab === "upload" ? (
           <UploadDropzone projectId={projectId} />
         ) : (
           <ScenarioBrowser projectId={projectId} />
         )}
       </div>
     </div>
-  )
+  );
 }
 
 interface ProjectItemProps {
-  project: any
-  isSelected: boolean
-  onSelect: () => void
+  project: any;
+  isSelected: boolean;
+  onSelect: () => void;
 }
 
 function ProjectItem({ project, isSelected, onSelect }: ProjectItemProps) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteProject(project.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      toast.info('Project deleted')
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.info("Project deleted");
     },
     onError: (error: Error) => {
-      toast.error('Failed to delete project', error.message)
+      toast.error("Failed to delete project", error.message);
     },
-  })
+  });
 
   return (
     <li
       className={`
         flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors
-        ${isSelected ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-gray-800'}
+        ${isSelected ? "bg-blue-600/20 text-blue-400" : "hover:bg-gray-800"}
       `}
       onClick={onSelect}
     >
       <ChevronRightIcon
-        className={`w-4 h-4 transition-transform ${isSelected ? 'rotate-90' : ''}`}
+        className={`w-4 h-4 transition-transform ${isSelected ? "rotate-90" : ""}`}
       />
       <FileIcon className="w-4 h-4" />
       <span className="flex-1 text-sm truncate">{project.name}</span>
       <button
         onClick={(e) => {
-          e.stopPropagation()
-          if (confirm('Delete this project?')) {
-            deleteMutation.mutate()
+          e.stopPropagation();
+          if (confirm("Delete this project?")) {
+            deleteMutation.mutate();
           }
         }}
         className="p-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
@@ -206,35 +208,35 @@ function ProjectItem({ project, isSelected, onSelect }: ProjectItemProps) {
         <TrashIcon className="w-4 h-4" />
       </button>
     </li>
-  )
+  );
 }
 
 function CreateProjectDialog() {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const queryClient = useQueryClient()
-  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const queryClient = useQueryClient();
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
 
   const createMutation = useMutation({
     mutationFn: (data: ProjectCreate) => createProject(data),
     onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      setCurrentProject(project.id)
-      setOpen(false)
-      setName('')
-      toast.success('Project created', `"${project.name}" is ready`)
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setCurrentProject(project.id);
+      setOpen(false);
+      setName("");
+      toast.success("Project created", `"${project.name}" is ready`);
     },
     onError: (error: Error) => {
-      toast.error('Failed to create project', error.message)
+      toast.error("Failed to create project", error.message);
     },
-  })
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (name.trim()) {
-      createMutation.mutate({ name: name.trim() })
+      createMutation.mutate({ name: name.trim() });
     }
-  }
+  };
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -282,81 +284,85 @@ function CreateProjectDialog() {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
+  );
 }
 
 interface UploadDropzoneProps {
-  projectId: string
+  projectId: string;
 }
 
 function UploadDropzone({ projectId }: UploadDropzoneProps) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
-  const queryClient = useQueryClient()
-  const updateProject = useProjectStore((s) => s.updateProject)
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+    null,
+  );
+  const queryClient = useQueryClient();
+  const updateProject = useProjectStore((s) => s.updateProject);
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) =>
       uploadPointCloud(projectId, file, true, 16, (progress) => {
-        setUploadProgress(progress)
+        setUploadProgress(progress);
       }),
     onSuccess: (result) => {
-      setUploadProgress(null)
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      queryClient.invalidateQueries({ queryKey: ['octree-metadata', projectId] })
+      setUploadProgress(null);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({
+        queryKey: ["octree-metadata", projectId],
+      });
       updateProject(projectId, {
         pointCloudId: result.id,
         pointCount: result.point_count,
         hasNormals: result.has_normals,
         boundsLow: result.bounds_low,
         boundsHigh: result.bounds_high,
-      })
+      });
       toast.success(
-        'Point cloud uploaded',
-        `${result.point_count.toLocaleString()} points loaded`
-      )
+        "Point cloud uploaded",
+        `${result.point_count.toLocaleString()} points loaded`,
+      );
     },
     onError: (error: Error) => {
-      setUploadProgress(null)
-      toast.error('Upload failed', error.message)
+      setUploadProgress(null);
+      toast.error("Upload failed", error.message);
     },
-  })
+  });
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
+      e.preventDefault();
+      setIsDragging(false);
 
-      const file = e.dataTransfer.files[0]
+      const file = e.dataTransfer.files[0];
       if (file) {
-        uploadMutation.mutate(file)
+        uploadMutation.mutate(file);
       }
     },
-    [uploadMutation]
-  )
+    [uploadMutation],
+  );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
+      const file = e.target.files?.[0];
       if (file) {
-        uploadMutation.mutate(file)
+        uploadMutation.mutate(file);
       }
     },
-    [uploadMutation]
-  )
+    [uploadMutation],
+  );
 
-  const isUploading = uploadMutation.isPending
+  const isUploading = uploadMutation.isPending;
 
   return (
     <div
       className={`
         p-4 border-2 border-dashed rounded-lg text-center transition-colors
-        ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}
-        ${isUploading ? 'pointer-events-none' : ''}
+        ${isDragging ? "border-blue-500 bg-blue-500/10" : "border-gray-700 hover:border-gray-600"}
+        ${isUploading ? "pointer-events-none" : ""}
       `}
       onDragOver={(e) => {
-        e.preventDefault()
-        setIsDragging(true)
+        e.preventDefault();
+        setIsDragging(true);
       }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
@@ -375,15 +381,15 @@ function UploadDropzone({ projectId }: UploadDropzoneProps) {
             Uploading... {uploadProgress?.percent ?? 0}%
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            {uploadProgress ? `${(uploadProgress.loaded / 1024 / 1024).toFixed(1)} MB / ${(uploadProgress.total / 1024 / 1024).toFixed(1)} MB` : ''}
+            {uploadProgress
+              ? `${(uploadProgress.loaded / 1024 / 1024).toFixed(1)} MB / ${(uploadProgress.total / 1024 / 1024).toFixed(1)} MB`
+              : ""}
           </p>
         </>
       ) : (
         <>
           <UploadIcon className="w-8 h-8 mx-auto mb-2 text-gray-500" />
-          <p className="text-sm text-gray-400 mb-2">
-            Drop point cloud here
-          </p>
+          <p className="text-sm text-gray-400 mb-2">Drop point cloud here</p>
           <label className="text-xs text-blue-400 hover:underline cursor-pointer">
             or browse files
             <input
@@ -399,47 +405,56 @@ function UploadDropzone({ projectId }: UploadDropzoneProps) {
         </>
       )}
     </div>
-  )
+  );
 }
 
 interface ScenarioBrowserProps {
-  projectId: string
+  projectId: string;
 }
 
 function ScenarioBrowser({ projectId }: ScenarioBrowserProps) {
-  const [selectedCategory, setSelectedCategory] = useState<'trenchfoot' | 'sdf'>('trenchfoot')
-  const queryClient = useQueryClient()
-  const updateProject = useProjectStore((s) => s.updateProject)
+  const [selectedCategory, setSelectedCategory] = useState<
+    "trenchfoot" | "sdf"
+  >("trenchfoot");
+  const queryClient = useQueryClient();
+  const updateProject = useProjectStore((s) => s.updateProject);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['scenarios', selectedCategory],
+    queryKey: ["scenarios", selectedCategory],
     queryFn: () => listScenarios(selectedCategory),
-  })
+  });
 
   const loadMutation = useMutation({
-    mutationFn: ({ name, category }: { name: string; category: 'trenchfoot' | 'sdf' }) =>
-      loadScenario(projectId, name, category),
+    mutationFn: ({
+      name,
+      category,
+    }: {
+      name: string;
+      category: "trenchfoot" | "sdf";
+    }) => loadScenario(projectId, name, category),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      queryClient.invalidateQueries({ queryKey: ['octree-metadata', projectId] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({
+        queryKey: ["octree-metadata", projectId],
+      });
       updateProject(projectId, {
         pointCloudId: result.scenario,
         pointCount: result.point_count,
         hasNormals: true,
         boundsLow: result.bounds.low,
         boundsHigh: result.bounds.high,
-      })
+      });
       toast.success(
-        'Scenario loaded',
-        `${result.scenario}: ${result.point_count.toLocaleString()} points`
-      )
+        "Scenario loaded",
+        `${result.scenario}: ${result.point_count.toLocaleString()} points`,
+      );
     },
     onError: (error: Error) => {
-      toast.error('Failed to load scenario', error.message)
+      toast.error("Failed to load scenario", error.message);
     },
-  })
+  });
 
-  const scenarios = data?.scenarios ?? []
+  const scenarios = data?.scenarios ?? [];
 
   return (
     <div>
@@ -447,21 +462,21 @@ function ScenarioBrowser({ projectId }: ScenarioBrowserProps) {
       <div className="flex gap-2 mb-3">
         <button
           className={`px-2 py-1 text-xs rounded ${
-            selectedCategory === 'trenchfoot'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
+            selectedCategory === "trenchfoot"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:text-white"
           }`}
-          onClick={() => setSelectedCategory('trenchfoot')}
+          onClick={() => setSelectedCategory("trenchfoot")}
         >
           Trenchfoot
         </button>
         <button
           className={`px-2 py-1 text-xs rounded ${
-            selectedCategory === 'sdf'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
+            selectedCategory === "sdf"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:text-white"
           }`}
-          onClick={() => setSelectedCategory('sdf')}
+          onClick={() => setSelectedCategory("sdf")}
         >
           SDF Shapes
         </button>
@@ -479,13 +494,20 @@ function ScenarioBrowser({ projectId }: ScenarioBrowserProps) {
               <button
                 className="w-full text-left px-2 py-1.5 text-xs rounded bg-gray-800 hover:bg-gray-700 transition-colors disabled:opacity-50"
                 onClick={() =>
-                  loadMutation.mutate({ name: scenario.name, category: scenario.category })
+                  loadMutation.mutate({
+                    name: scenario.name,
+                    category: scenario.category,
+                  })
                 }
                 disabled={loadMutation.isPending}
               >
-                <span className="font-medium text-gray-200">{scenario.name}</span>
+                <span className="font-medium text-gray-200">
+                  {scenario.name}
+                </span>
                 {scenario.description && (
-                  <span className="block text-gray-500 truncate">{scenario.description}</span>
+                  <span className="block text-gray-500 truncate">
+                    {scenario.description}
+                  </span>
                 )}
               </button>
             </li>
@@ -497,37 +519,37 @@ function ScenarioBrowser({ projectId }: ScenarioBrowserProps) {
         <p className="text-xs text-blue-400 mt-2">Loading scenario...</p>
       )}
     </div>
-  )
+  );
 }
 
 interface DeleteAllProjectsButtonProps {
-  projectCount: number
+  projectCount: number;
 }
 
-function DeleteAllProjectsButton({ projectCount }: DeleteAllProjectsButtonProps) {
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-  const clearAllProjects = useProjectStore((s) => s.clearAllProjects)
+function DeleteAllProjectsButton({
+  projectCount,
+}: DeleteAllProjectsButtonProps) {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const clearAllProjects = useProjectStore((s) => s.clearAllProjects);
 
   const deleteMutation = useMutation({
     mutationFn: deleteAllProjects,
     onSuccess: () => {
-      clearAllProjects()
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      toast.info('All projects deleted')
-      setOpen(false)
+      clearAllProjects();
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.info("All projects deleted");
+      setOpen(false);
     },
     onError: (error: Error) => {
-      toast.error('Failed to delete projects', error.message)
+      toast.error("Failed to delete projects", error.message);
     },
-  })
+  });
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <button
-          className="w-full text-xs text-red-400 hover:text-red-300 py-1 transition-colors"
-        >
+        <button className="w-full text-xs text-red-400 hover:text-red-300 py-1 transition-colors">
           Delete All Projects
         </button>
       </Dialog.Trigger>
@@ -538,7 +560,8 @@ function DeleteAllProjectsButton({ projectCount }: DeleteAllProjectsButtonProps)
             Delete All Projects?
           </Dialog.Title>
           <Dialog.Description className="text-sm text-gray-400 mb-4">
-            This will permanently delete all {projectCount} project{projectCount !== 1 ? 's' : ''} and their data.
+            This will permanently delete all {projectCount} project
+            {projectCount !== 1 ? "s" : ""} and their data.
             <span className="block mt-2 font-semibold text-red-400">
               This action cannot be undone.
             </span>
@@ -554,11 +577,11 @@ function DeleteAllProjectsButton({ projectCount }: DeleteAllProjectsButtonProps)
               disabled={deleteMutation.isPending}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete All'}
+              {deleteMutation.isPending ? "Deleting..." : "Delete All"}
             </button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
+  );
 }

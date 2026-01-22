@@ -99,9 +99,7 @@ class TestVoxelResolution:
         # With target=32 and extent=1, voxel_size should be 1/32
         assert voxel_size == pytest.approx(1 / 32, rel=0.01)
 
-    def test_compute_voxel_resolution_custom_target(
-        self, pocket_service: PocketService
-    ):
+    def test_compute_voxel_resolution_custom_target(self, pocket_service: PocketService):
         """Should use custom target if provided."""
         bounds_low = np.array([0, 0, 0])
         bounds_high = np.array([1, 1, 1])
@@ -347,9 +345,7 @@ class TestAnalyzePockets:
         )
 
         # Second should use cache
-        analysis2 = await pocket_service.analyze_pockets(
-            sample_project.id, recompute=False
-        )
+        analysis2 = await pocket_service.analyze_pockets(sample_project.id, recompute=False)
 
         assert analysis1.computed_at == analysis2.computed_at
 
@@ -433,9 +429,7 @@ class TestConstraintCreation:
     ):
         """Should raise error when no analysis exists."""
         with pytest.raises(ValueError, match="No pocket analysis"):
-            pocket_service.create_pocket_constraint(
-                sample_project.id, 1, SignConvention.SOLID
-            )
+            pocket_service.create_pocket_constraint(sample_project.id, 1, SignConvention.SOLID)
 
     @pytest.mark.asyncio
     async def test_create_pocket_constraint_invalid_pocket(
@@ -445,14 +439,10 @@ class TestConstraintCreation:
         cube_shell_pointcloud: np.ndarray,
     ):
         """Should raise error for non-existent pocket."""
-        await pocket_service.analyze_pockets(
-            sample_project.id, voxel_target=16, recompute=True
-        )
+        await pocket_service.analyze_pockets(sample_project.id, voxel_target=16, recompute=True)
 
         with pytest.raises(ValueError, match="Pocket 9999 not found"):
-            pocket_service.create_pocket_constraint(
-                sample_project.id, 9999, SignConvention.SOLID
-            )
+            pocket_service.create_pocket_constraint(sample_project.id, 9999, SignConvention.SOLID)
 
 
 class TestCacheManagement:
@@ -466,9 +456,7 @@ class TestCacheManagement:
         cube_shell_pointcloud: np.ndarray,
     ):
         """clear_cache should remove cached analysis."""
-        await pocket_service.analyze_pockets(
-            sample_project.id, voxel_target=16, recompute=True
-        )
+        await pocket_service.analyze_pockets(sample_project.id, voxel_target=16, recompute=True)
 
         # Verify cache exists
         cached = pocket_service.get_cached_analysis(sample_project.id)
@@ -481,9 +469,7 @@ class TestCacheManagement:
         cached = pocket_service.get_cached_analysis(sample_project.id)
         assert cached is None
 
-    def test_get_cached_analysis_no_cache(
-        self, pocket_service: PocketService, sample_project
-    ):
+    def test_get_cached_analysis_no_cache(self, pocket_service: PocketService, sample_project):
         """Should return None when no cache exists."""
         cached = pocket_service.get_cached_analysis(sample_project.id)
         assert cached is None

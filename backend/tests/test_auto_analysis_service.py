@@ -7,8 +7,14 @@ import numpy as np
 import pytest
 
 from sdf_labeler_api.config import Settings
-from sdf_labeler_api.models.auto_analysis import AlgorithmType
+from sdf_labeler_api.models.auto_analysis import AlgorithmType, AutoAnalysisOptions
 from sdf_labeler_api.services.auto_analysis_service import AutoAnalysisService
+
+
+@pytest.fixture
+def default_options() -> AutoAnalysisOptions:
+    """Default analysis options for tests."""
+    return AutoAnalysisOptions()
 
 
 @pytest.fixture
@@ -149,7 +155,9 @@ class TestDominantGroundDetection:
 class TestNormalOffsetConstraints:
     """Tests for normal offset box constraint generation."""
 
-    def test_generates_paired_constraints(self, auto_service: AutoAnalysisService):
+    def test_generates_paired_constraints(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should generate paired solid/empty boxes along normals."""
         np.random.seed(42)
         n_points = 50
@@ -158,7 +166,7 @@ class TestNormalOffsetConstraints:
         normals = np.random.randn(n_points, 3).astype(np.float32)
         normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
 
-        constraints = auto_service._generate_normal_offset_boxes(xyz, normals)
+        constraints = auto_service._generate_normal_offset_boxes(xyz, normals, default_options)
 
         # Should have pairs (solid + empty for each sample point)
         assert len(constraints) > 0
@@ -170,7 +178,9 @@ class TestNormalOffsetConstraints:
 
         assert solid_count == empty_count  # Equal pairs
 
-    def test_constraints_offset_from_surface(self, auto_service: AutoAnalysisService):
+    def test_constraints_offset_from_surface(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Boxes should be offset from original points along normals."""
         np.random.seed(42)
         n_points = 50
@@ -185,7 +195,7 @@ class TestNormalOffsetConstraints:
         normals = np.zeros((n_points, 3), dtype=np.float32)
         normals[:, 2] = 1.0
 
-        constraints = auto_service._generate_normal_offset_boxes(xyz, normals)
+        constraints = auto_service._generate_normal_offset_boxes(xyz, normals, default_options)
 
         for c in constraints:
             center_z = c.constraint["center"][2]
@@ -196,12 +206,14 @@ class TestNormalOffsetConstraints:
                 # Solid boxes in -normal direction
                 assert center_z < 0
 
-    def test_no_constraints_without_normals(self, auto_service: AutoAnalysisService):
+    def test_no_constraints_without_normals(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should return empty list when normals not available."""
         np.random.seed(42)
         xyz = np.random.randn(100, 3).astype(np.float32)
 
-        constraints = auto_service._generate_normal_offset_boxes(xyz, None)
+        constraints = auto_service._generate_normal_offset_boxes(xyz, None, default_options)
 
         assert constraints == []
 
@@ -209,7 +221,9 @@ class TestNormalOffsetConstraints:
 class TestFloodFillConstraints:
     """Tests for flood fill exterior detection."""
 
-    def test_generates_constraints(self, auto_service: AutoAnalysisService):
+    def test_generates_constraints(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Flood fill should generate box constraints for a surface with open exterior."""
         np.random.seed(42)
 
@@ -231,7 +245,7 @@ class TestFloodFillConstraints:
         normals = np.zeros_like(xyz)
         normals[:, 2] = 1.0  # Upward normals (simplified)
 
-        constraints = auto_service._generate_flood_fill_constraints(xyz, normals)
+        constraints = auto_service._generate_flood_fill_constraints(xyz, normals, default_options)
 
         # Should generate some constraints (sky-reachable regions)
         assert len(constraints) > 0
@@ -241,7 +255,9 @@ class TestFloodFillConstraints:
             assert c.constraint["sign"] == "empty"
             assert c.algorithm == AlgorithmType.FLOOD_FILL
 
-    def test_detects_sky_reachable_region(self, auto_service: AutoAnalysisService):
+    def test_detects_sky_reachable_region(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should detect regions reachable from the sky as empty."""
         np.random.seed(42)
 
@@ -252,11 +268,9 @@ class TestFloodFillConstraints:
         # Dense floor grid
         n_floor = 50
         floor_x, floor_y = np.meshgrid(
-            np.linspace(0, scale, n_floor),
-            np.linspace(0, scale, n_floor)
+            np.linspace(0, scale, n_floor), np.linspace(0, scale, n_floor)
         )
-        floor = np.stack([floor_x.ravel(), floor_y.ravel(),
-                         np.zeros(n_floor * n_floor)], axis=1)
+        floor = np.stack([floor_x.ravel(), floor_y.ravel(), np.zeros(n_floor * n_floor)], axis=1)
 
         # Dense walls
         walls = []
@@ -279,7 +293,7 @@ class TestFloodFillConstraints:
         normals = np.zeros_like(xyz)
         normals[:, 2] = 1.0  # Dummy normals
 
-        constraints = auto_service._generate_flood_fill_constraints(xyz, normals)
+        constraints = auto_service._generate_flood_fill_constraints(xyz, normals, default_options)
 
         # Should find the sky-reachable exterior
         assert len(constraints) > 0
@@ -288,13 +302,15 @@ class TestFloodFillConstraints:
         for c in constraints:
             assert c.constraint["sign"] == "empty"
 
-    def test_handles_small_pointcloud(self, auto_service: AutoAnalysisService):
+    def test_handles_small_pointcloud(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should handle edge cases gracefully."""
         xyz = np.array([[0, 0, 0], [1, 1, 1]], dtype=np.float32)
         normals = np.zeros_like(xyz)
 
         # Should not crash, returns empty for too-small data
-        constraints = auto_service._generate_flood_fill_constraints(xyz, normals)
+        constraints = auto_service._generate_flood_fill_constraints(xyz, normals, default_options)
 
         assert isinstance(constraints, list)
         assert len(constraints) == 0  # Too small to analyze
@@ -303,7 +319,9 @@ class TestFloodFillConstraints:
 class TestVoxelRegionConstraints:
     """Tests for voxel-based underground region detection."""
 
-    def test_generates_solid_constraints(self, auto_service: AutoAnalysisService):
+    def test_generates_solid_constraints(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should generate SOLID box constraints for underground regions."""
         np.random.seed(42)
 
@@ -323,9 +341,9 @@ class TestVoxelRegionConstraints:
                 x = -2 + 4 * i / n_wall
                 z = -2 + 2 * j / n_wall
                 walls.append([x, -2, z])  # Front wall
-                walls.append([x, 2, z])   # Back wall
+                walls.append([x, 2, z])  # Back wall
                 walls.append([-2, -2 + 4 * i / n_wall, z])  # Left wall
-                walls.append([2, -2 + 4 * i / n_wall, z])   # Right wall
+                walls.append([2, -2 + 4 * i / n_wall, z])  # Right wall
 
         # Floor of pit
         pit_floor_n = 100
@@ -345,7 +363,7 @@ class TestVoxelRegionConstraints:
         wall_normals[:, 0] = 0.5
         wall_normals[:, 1] = 0.5
 
-        constraints = auto_service._generate_voxel_region_constraints(xyz, normals)
+        constraints = auto_service._generate_voxel_region_constraints(xyz, normals, default_options)
 
         # May or may not generate constraints depending on voxelization
         # If it does, they should be SOLID
@@ -354,7 +372,9 @@ class TestVoxelRegionConstraints:
             assert c.constraint["sign"] == "solid"
             assert c.algorithm == AlgorithmType.VOXEL_REGIONS
 
-    def test_uses_dominant_ground(self, auto_service: AutoAnalysisService):
+    def test_uses_dominant_ground(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should use dominant ground level, not lowest points."""
         np.random.seed(42)
 
@@ -378,7 +398,7 @@ class TestVoxelRegionConstraints:
 
         # The trench interior should NOT become SOLID because it's sky-reachable
         # Only truly underground (not sky-reachable) regions should be SOLID
-        constraints = auto_service._generate_voxel_region_constraints(xyz, normals)
+        constraints = auto_service._generate_voxel_region_constraints(xyz, normals, default_options)
 
         # Verify that constraints (if any) are properly labeled
         for c in constraints:
@@ -393,9 +413,7 @@ class TestHelperMethods:
         # Regular grid
         x = np.linspace(0, 1, 10)
         xx, yy, zz = np.meshgrid(x, x, x)
-        xyz = np.stack([xx.ravel(), yy.ravel(), zz.ravel()], axis=1).astype(
-            np.float32
-        )
+        xyz = np.stack([xx.ravel(), yy.ravel(), zz.ravel()], axis=1).astype(np.float32)
 
         spacing = auto_service._estimate_mean_spacing(xyz)
 
@@ -412,12 +430,14 @@ class TestHelperMethods:
         assert len(selected) == 10
         assert len(set(selected)) == 10  # All unique
 
-    def test_build_voxel_grid(self, auto_service: AutoAnalysisService):
+    def test_build_voxel_grid(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should build valid voxel grid from point cloud."""
         np.random.seed(42)
         xyz = np.random.randn(100, 3).astype(np.float32) * 5
 
-        result = auto_service._build_voxel_grid(xyz)
+        result = auto_service._build_voxel_grid(xyz, default_options)
 
         assert result is not None
         occupied, bbox_min, voxel_size, grid_shape = result
@@ -425,7 +445,9 @@ class TestHelperMethods:
         assert voxel_size > 0
         assert len(bbox_min) == 3
 
-    def test_ray_propagation_with_bounces(self, auto_service: AutoAnalysisService):
+    def test_ray_propagation_with_bounces(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
         """Should correctly propagate EMPTY from top and SOLID from bottom with bouncing."""
         # Create a simple occupied grid simulating ground with a trench
         grid_shape = (10, 10, 10)
@@ -444,7 +466,7 @@ class TestHelperMethods:
         inside_hull = np.ones((10, 10), dtype=bool)
 
         empty, solid = auto_service._ray_propagation_with_bounces(
-            occupied, grid_shape, inside_hull
+            occupied, grid_shape, inside_hull, default_options.cone_angle
         )
 
         # Sky (Z > 5) should be EMPTY everywhere
@@ -465,6 +487,83 @@ class TestHelperMethods:
         # Trench interior should NOT be SOLID
         assert not solid[5, 5, 3], "Trench interior should not be SOLID"
         assert not solid[5, 5, 4], "Trench interior should not be SOLID"
+
+
+class TestIDWNormalSampling:
+    """Tests for IDW normal sampling algorithm."""
+
+    def test_generates_sample_points(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
+        """Should generate sample_point constraints along normals."""
+        np.random.seed(42)
+        n_points = 100
+
+        xyz = np.random.randn(n_points, 3).astype(np.float32)
+        normals = np.random.randn(n_points, 3).astype(np.float32)
+        normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
+
+        constraints = auto_service._generate_idw_normal_samples(xyz, normals, default_options)
+
+        assert len(constraints) > 0
+
+        for c in constraints:
+            assert c.constraint["type"] == "sample_point"
+            assert c.constraint["sign"] in ["solid", "empty"]
+            assert "position" in c.constraint
+            assert "distance" in c.constraint
+            assert c.algorithm == AlgorithmType.NORMAL_IDW
+
+    def test_respects_sample_count(self, auto_service: AutoAnalysisService):
+        """Sample count option should affect number of constraints."""
+        np.random.seed(42)
+        n_points = 200
+
+        xyz = np.random.randn(n_points, 3).astype(np.float32)
+        normals = np.random.randn(n_points, 3).astype(np.float32)
+        normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
+
+        # Test with low sample count
+        options_low = AutoAnalysisOptions(idw_sample_count=200)
+        constraints_low = auto_service._generate_idw_normal_samples(xyz, normals, options_low)
+
+        # Test with high sample count
+        options_high = AutoAnalysisOptions(idw_sample_count=2000)
+        constraints_high = auto_service._generate_idw_normal_samples(xyz, normals, options_high)
+
+        # Higher count should produce more constraints
+        assert len(constraints_high) > len(constraints_low)
+
+    def test_no_constraints_without_normals(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
+        """Should return empty list when normals not available."""
+        np.random.seed(42)
+        xyz = np.random.randn(100, 3).astype(np.float32)
+
+        constraints = auto_service._generate_idw_normal_samples(xyz, None, default_options)
+
+        assert constraints == []
+
+    def test_generates_both_signs(
+        self, auto_service: AutoAnalysisService, default_options: AutoAnalysisOptions
+    ):
+        """Should generate both solid and empty samples."""
+        np.random.seed(42)
+        n_points = 100
+
+        xyz = np.random.randn(n_points, 3).astype(np.float32)
+        normals = np.random.randn(n_points, 3).astype(np.float32)
+        normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
+
+        constraints = auto_service._generate_idw_normal_samples(xyz, normals, default_options)
+
+        solid_count = sum(1 for c in constraints if c.constraint["sign"] == "solid")
+        empty_count = sum(1 for c in constraints if c.constraint["sign"] == "empty")
+
+        # Both signs should be present
+        assert solid_count > 0
+        assert empty_count > 0
 
 
 class TestBoxIntersectionFraction:
@@ -909,6 +1008,7 @@ class TestCaching:
         )
 
         import time
+
         time.sleep(0.01)  # Ensure different timestamp
 
         result2 = await auto_service.analyze(
@@ -1040,12 +1140,11 @@ class TestFullAnalysis:
         assert "normal_offset" in result.algorithms_run
         assert "invalid_algo" not in result.algorithms_run
 
-    def test_analyze_no_pointcloud(
-        self, auto_service: AutoAnalysisService, sample_project
-    ):
+    def test_analyze_no_pointcloud(self, auto_service: AutoAnalysisService, sample_project):
         """Should raise error when no point cloud exists."""
         with pytest.raises(ValueError, match="No point cloud"):
             import asyncio
+
             asyncio.get_event_loop().run_until_complete(
                 auto_service.analyze(sample_project.id, recompute=True)
             )

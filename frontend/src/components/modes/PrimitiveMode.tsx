@@ -1,56 +1,61 @@
 // ABOUTME: Primitive placement mode panel
 // ABOUTME: UI for selecting and configuring box/sphere/halfspace primitives
 
-import * as ToggleGroup from '@radix-ui/react-toggle-group'
-import * as Slider from '@radix-ui/react-slider'
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import * as Slider from "@radix-ui/react-slider";
 import {
   BoxIcon,
   CircleIcon,
   ShadowIcon,
   Component1Icon,
-} from '@radix-ui/react-icons'
+} from "@radix-ui/react-icons";
 
-import { useProjectStore } from '../../stores/projectStore'
-import { usePrimitiveStore, type PrimitiveType } from '../../stores/primitiveStore'
+import { useProjectStore } from "../../stores/projectStore";
+import {
+  usePrimitiveStore,
+  type PrimitiveType,
+} from "../../stores/primitiveStore";
 
 const primitiveOptions: {
-  value: PrimitiveType
-  icon: typeof BoxIcon
-  label: string
-  shortcut: string
+  value: PrimitiveType;
+  icon: typeof BoxIcon;
+  label: string;
+  shortcut: string;
 }[] = [
-  { value: 'box', icon: BoxIcon, label: 'Box', shortcut: 'B' },
-  { value: 'sphere', icon: CircleIcon, label: 'Sphere', shortcut: 'O' },
-  { value: 'halfspace', icon: ShadowIcon, label: 'Half-space', shortcut: 'H' },
-  { value: 'cylinder', icon: Component1Icon, label: 'Cylinder', shortcut: 'C' },
-]
+  { value: "box", icon: BoxIcon, label: "Box", shortcut: "B" },
+  { value: "sphere", icon: CircleIcon, label: "Sphere", shortcut: "O" },
+  { value: "halfspace", icon: ShadowIcon, label: "Half-space", shortcut: "H" },
+  { value: "cylinder", icon: Component1Icon, label: "Cylinder", shortcut: "C" },
+];
 
 export function PrimitiveMode() {
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const primitiveType = usePrimitiveStore((s) => s.primitiveType)
-  const setPrimitiveType = usePrimitiveStore((s) => s.setPrimitiveType)
-  const defaultSize = usePrimitiveStore((s) => s.defaultSize)
-  const setDefaultSize = usePrimitiveStore((s) => s.setDefaultSize)
-  const snapToGrid = usePrimitiveStore((s) => s.snapToGrid)
-  const setSnapToGrid = usePrimitiveStore((s) => s.setSnapToGrid)
-  const gridSize = usePrimitiveStore((s) => s.gridSize)
-  const setGridSize = usePrimitiveStore((s) => s.setGridSize)
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const primitiveType = usePrimitiveStore((s) => s.primitiveType);
+  const setPrimitiveType = usePrimitiveStore((s) => s.setPrimitiveType);
+  const defaultSize = usePrimitiveStore((s) => s.defaultSize);
+  const setDefaultSize = usePrimitiveStore((s) => s.setDefaultSize);
+  const snapToGrid = usePrimitiveStore((s) => s.snapToGrid);
+  const setSnapToGrid = usePrimitiveStore((s) => s.setSnapToGrid);
+  const gridSize = usePrimitiveStore((s) => s.gridSize);
+  const setGridSize = usePrimitiveStore((s) => s.setGridSize);
 
-  const labelColor = activeLabel === 'solid' ? 'text-solid' : 'text-empty'
+  const labelColor = activeLabel === "solid" ? "text-solid" : "text-empty";
 
   return (
     <div className="p-4 space-y-4">
       {/* Instructions */}
       <div className="p-3 bg-gray-800/50 rounded-lg text-sm text-gray-400">
         <p className="mb-2">
-          <strong className="text-white">Click</strong> in 3D space to place a primitive
+          <strong className="text-white">Click</strong> in 3D space to place a
+          primitive
         </p>
         <p className="mb-2">
           <strong className="text-white">Drag handles</strong> to resize/move
         </p>
         <p>
-          Label: <span className={`font-medium ${labelColor}`}>
-            {activeLabel === 'solid' ? 'Solid (inside)' : 'Empty (outside)'}
+          Label:{" "}
+          <span className={`font-medium ${labelColor}`}>
+            {activeLabel === "solid" ? "Solid (inside)" : "Empty (outside)"}
           </span>
         </p>
       </div>
@@ -63,7 +68,9 @@ export function PrimitiveMode() {
         <ToggleGroup.Root
           type="single"
           value={primitiveType}
-          onValueChange={(value) => value && setPrimitiveType(value as PrimitiveType)}
+          onValueChange={(value) =>
+            value && setPrimitiveType(value as PrimitiveType)
+          }
           className="grid grid-cols-2 gap-2"
         >
           {primitiveOptions.map(({ value, icon: Icon, label, shortcut }) => (
@@ -72,9 +79,10 @@ export function PrimitiveMode() {
               value={value}
               className={`
                 flex items-center gap-2 p-3 rounded-lg border transition-colors
-                ${primitiveType === value
-                  ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                  : 'border-gray-700 hover:border-gray-600 text-gray-400'
+                ${
+                  primitiveType === value
+                    ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                    : "border-gray-700 hover:border-gray-600 text-gray-400"
                 }
               `}
             >
@@ -96,7 +104,9 @@ export function PrimitiveMode() {
           <h4 className="text-xs font-medium text-gray-500 uppercase">
             Default Size
           </h4>
-          <span className="text-sm text-gray-400">{defaultSize.toFixed(2)}</span>
+          <span className="text-sm text-gray-400">
+            {defaultSize.toFixed(2)}
+          </span>
         </div>
         <Slider.Root
           value={[defaultSize]}
@@ -123,13 +133,13 @@ export function PrimitiveMode() {
           onClick={() => setSnapToGrid(!snapToGrid)}
           className={`
             relative w-10 h-6 rounded-full transition-colors
-            ${snapToGrid ? 'bg-blue-600' : 'bg-gray-700'}
+            ${snapToGrid ? "bg-blue-600" : "bg-gray-700"}
           `}
         >
           <span
             className={`
               absolute top-1 w-4 h-4 rounded-full bg-white transition-transform
-              ${snapToGrid ? 'left-5' : 'left-1'}
+              ${snapToGrid ? "left-5" : "left-1"}
             `}
           />
         </button>
@@ -185,5 +195,5 @@ export function PrimitiveMode() {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -14,6 +14,7 @@ class AlgorithmType(str, Enum):
     NORMAL_OFFSET = "normal_offset"  # Surface-relative offset regions
     FLOOD_FILL = "flood_fill"  # Exterior flood fill from sky for EMPTY regions
     VOXEL_REGIONS = "voxel_regions"  # Underground regions via voxel classification for SOLID boxes
+    NORMAL_IDW = "normal_idw"  # Inverse distance weighted normal sampling
 
 
 ALL_ALGORITHMS = [
@@ -21,7 +22,59 @@ ALL_ALGORITHMS = [
     AlgorithmType.NORMAL_OFFSET,
     AlgorithmType.FLOOD_FILL,
     AlgorithmType.VOXEL_REGIONS,
+    AlgorithmType.NORMAL_IDW,
 ]
+
+
+class AutoAnalysisOptions(BaseModel):
+    """Tunable hyperparameters for auto-analysis algorithms."""
+
+    # Voxel grid parameters
+    min_gap_size: float = Field(
+        default=0.10,
+        ge=0.01,
+        le=1.0,
+        description="Minimum gap size in meters that flood fill can traverse",
+    )
+    max_grid_dim: int = Field(
+        default=200, ge=50, le=500, description="Maximum voxel grid dimension"
+    )
+
+    # Ray propagation
+    cone_angle: float = Field(
+        default=15.0, ge=0.0, le=45.0, description="Ray propagation cone half-angle in degrees"
+    )
+
+    # Normal offset
+    normal_offset_pairs: int = Field(
+        default=40,
+        ge=10,
+        le=200,
+        description="Number of SOLID/EMPTY box pairs for normal_offset algorithm",
+    )
+
+    # Filtering
+    max_boxes: int = Field(default=15, ge=5, le=100, description="Maximum boxes per algorithm")
+    overlap_threshold: float = Field(
+        default=0.5,
+        ge=0.1,
+        le=0.9,
+        description="Fraction overlap required to remove redundant boxes",
+    )
+
+    # IDW Normal sampling
+    idw_sample_count: int = Field(
+        default=1000, ge=100, le=10000, description="Total IDW samples to generate"
+    )
+    idw_max_distance: float = Field(
+        default=0.5, ge=0.05, le=2.0, description="Maximum distance from surface in meters"
+    )
+    idw_power: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=4.0,
+        description="IDW power factor (higher = more weight near surface)",
+    )
 
 
 class GeneratedConstraint(BaseModel):
@@ -82,10 +135,14 @@ class AutoAnalyzeRequest(BaseModel):
 
     algorithms: list[str] | None = Field(
         default=None,
-        description="Algorithms to run (default: all). Options: pocket, normal_offset, flood_fill, voxel_regions",
+        description="Algorithms to run (default: all). Options: pocket, normal_offset, flood_fill, voxel_regions, normal_idw",
     )
     recompute: bool = Field(
         default=False, description="Force recomputation even if cached results exist"
+    )
+    options: AutoAnalysisOptions = Field(
+        default_factory=lambda: AutoAnalysisOptions(),
+        description="Tunable hyperparameters for algorithms",
     )
 
 

@@ -1,92 +1,103 @@
 // ABOUTME: Zustand store for project state management
 // ABOUTME: Tracks current project, point cloud, and UI state
 
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type InteractionMode =
-  | 'orbit'        // Default camera control
-  | 'ray_scribble' // Ray-scribble annotation
-  | 'click_pocket' // Click to detect pockets
-  | 'slice'        // 2D slice painting
-  | 'auto'         // Auto-analysis with confidence heatmap
-  | 'primitive'    // Place boxes/spheres/etc
-  | 'brush'        // 3D brush selection
-  | 'seed'         // Seed + propagate
-  | 'import'       // ML model import
+  | "orbit" // Default camera control
+  | "ray_scribble" // Ray-scribble annotation
+  | "click_pocket" // Click to detect pockets
+  | "slice" // 2D slice painting
+  | "auto" // Auto-analysis with confidence heatmap
+  | "primitive" // Place boxes/spheres/etc
+  | "brush" // 3D brush selection
+  | "seed" // Seed + propagate
+  | "import"; // ML model import
 
 // Mode categorization for UI organization
-export const PRIMARY_MODES: InteractionMode[] = ['orbit', 'ray_scribble', 'click_pocket', 'slice', 'auto']
-export const SECONDARY_MODES: InteractionMode[] = ['primitive', 'brush', 'seed', 'import']
+export const PRIMARY_MODES: InteractionMode[] = [
+  "orbit",
+  "ray_scribble",
+  "click_pocket",
+  "slice",
+  "auto",
+];
+export const SECONDARY_MODES: InteractionMode[] = [
+  "primitive",
+  "brush",
+  "seed",
+  "import",
+];
 
-export type LabelType = 'solid' | 'empty' | 'surface'
+export type LabelType = "solid" | "empty" | "surface";
 
 export interface Project {
-  id: string
-  name: string
-  description?: string
-  pointCloudId?: string
-  pointCount?: number
-  hasNormals?: boolean
-  boundsLow?: [number, number, number]
-  boundsHigh?: [number, number, number]
-  createdAt: string
-  updatedAt: string
+  id: string;
+  name: string;
+  description?: string;
+  pointCloudId?: string;
+  pointCount?: number;
+  hasNormals?: boolean;
+  boundsLow?: [number, number, number];
+  boundsHigh?: [number, number, number];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ProjectState {
   // Current project
-  currentProjectId: string | null
-  projects: Project[]
+  currentProjectId: string | null;
+  projects: Project[];
 
   // Interaction mode
-  mode: InteractionMode
-  activeLabel: LabelType
+  mode: InteractionMode;
+  activeLabel: LabelType;
 
   // Point cloud state
-  pointCloudLoaded: boolean
-  visiblePointCount: number
-  totalPointCount: number
-  pointCloudPositions: Float32Array | null  // Consolidated positions from all loaded tiles
+  pointCloudLoaded: boolean;
+  visiblePointCount: number;
+  totalPointCount: number;
+  pointCloudPositions: Float32Array | null; // Consolidated positions from all loaded tiles
 
   // Selection state
-  selectedPointIndices: Set<number>
-  brushRadius: number
+  selectedPointIndices: Set<number>;
+  brushRadius: number;
 
   // Slice view state
-  slicePlane: 'xy' | 'xz' | 'yz'
-  slicePosition: number
-  sliceThickness: number
+  slicePlane: "xy" | "xz" | "yz";
+  slicePosition: number;
+  sliceThickness: number;
 
   // Sample visualization
-  showSamples: boolean
+  showSamples: boolean;
 
   // Actions
-  setCurrentProject: (projectId: string | null) => void
-  addProject: (project: Project) => void
-  updateProject: (projectId: string, updates: Partial<Project>) => void
-  removeProject: (projectId: string) => void
+  setCurrentProject: (projectId: string | null) => void;
+  addProject: (project: Project) => void;
+  updateProject: (projectId: string, updates: Partial<Project>) => void;
+  removeProject: (projectId: string) => void;
 
-  setMode: (mode: InteractionMode) => void
-  setActiveLabel: (label: LabelType) => void
+  setMode: (mode: InteractionMode) => void;
+  setActiveLabel: (label: LabelType) => void;
 
-  setPointCloudLoaded: (loaded: boolean) => void
-  setVisiblePointCount: (count: number) => void
-  setTotalPointCount: (count: number) => void
-  setPointCloudPositions: (positions: Float32Array | null) => void
+  setPointCloudLoaded: (loaded: boolean) => void;
+  setVisiblePointCount: (count: number) => void;
+  setTotalPointCount: (count: number) => void;
+  setPointCloudPositions: (positions: Float32Array | null) => void;
 
-  selectPoints: (indices: number[]) => void
-  deselectPoints: (indices: number[]) => void
-  clearSelection: () => void
-  setBrushRadius: (radius: number) => void
+  selectPoints: (indices: number[]) => void;
+  deselectPoints: (indices: number[]) => void;
+  clearSelection: () => void;
+  setBrushRadius: (radius: number) => void;
 
-  setSlicePlane: (plane: 'xy' | 'xz' | 'yz') => void
-  setSlicePosition: (position: number) => void
-  setSliceThickness: (thickness: number) => void
+  setSlicePlane: (plane: "xy" | "xz" | "yz") => void;
+  setSlicePosition: (position: number) => void;
+  setSliceThickness: (thickness: number) => void;
 
-  setShowSamples: (show: boolean) => void
+  setShowSamples: (show: boolean) => void;
 
-  clearAllProjects: () => void
+  clearAllProjects: () => void;
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -96,8 +107,8 @@ export const useProjectStore = create<ProjectState>()(
       currentProjectId: null,
       projects: [],
 
-      mode: 'orbit',
-      activeLabel: 'solid',
+      mode: "orbit",
+      activeLabel: "solid",
 
       pointCloudLoaded: false,
       visiblePointCount: 0,
@@ -107,15 +118,14 @@ export const useProjectStore = create<ProjectState>()(
       selectedPointIndices: new Set(),
       brushRadius: 0.1,
 
-      slicePlane: 'xy',
+      slicePlane: "xy",
       slicePosition: 0,
       sliceThickness: 0.1,
 
       showSamples: false,
 
       // Actions
-      setCurrentProject: (projectId) =>
-        set({ currentProjectId: projectId }),
+      setCurrentProject: (projectId) => set({ currentProjectId: projectId }),
 
       addProject: (project) =>
         set((state) => ({
@@ -125,7 +135,7 @@ export const useProjectStore = create<ProjectState>()(
       updateProject: (projectId, updates) =>
         set((state) => ({
           projects: state.projects.map((p) =>
-            p.id === projectId ? { ...p, ...updates } : p
+            p.id === projectId ? { ...p, ...updates } : p,
           ),
         })),
 
@@ -133,7 +143,9 @@ export const useProjectStore = create<ProjectState>()(
         set((state) => ({
           projects: state.projects.filter((p) => p.id !== projectId),
           currentProjectId:
-            state.currentProjectId === projectId ? null : state.currentProjectId,
+            state.currentProjectId === projectId
+              ? null
+              : state.currentProjectId,
         })),
 
       setMode: (mode) => set({ mode }),
@@ -142,20 +154,21 @@ export const useProjectStore = create<ProjectState>()(
       setPointCloudLoaded: (loaded) => set({ pointCloudLoaded: loaded }),
       setVisiblePointCount: (count) => set({ visiblePointCount: count }),
       setTotalPointCount: (count) => set({ totalPointCount: count }),
-      setPointCloudPositions: (positions) => set({ pointCloudPositions: positions }),
+      setPointCloudPositions: (positions) =>
+        set({ pointCloudPositions: positions }),
 
       selectPoints: (indices) =>
         set((state) => {
-          const newSet = new Set(state.selectedPointIndices)
-          indices.forEach((i) => newSet.add(i))
-          return { selectedPointIndices: newSet }
+          const newSet = new Set(state.selectedPointIndices);
+          indices.forEach((i) => newSet.add(i));
+          return { selectedPointIndices: newSet };
         }),
 
       deselectPoints: (indices) =>
         set((state) => {
-          const newSet = new Set(state.selectedPointIndices)
-          indices.forEach((i) => newSet.delete(i))
-          return { selectedPointIndices: newSet }
+          const newSet = new Set(state.selectedPointIndices);
+          indices.forEach((i) => newSet.delete(i));
+          return { selectedPointIndices: newSet };
         }),
 
       clearSelection: () => set({ selectedPointIndices: new Set() }),
@@ -177,7 +190,7 @@ export const useProjectStore = create<ProjectState>()(
         }),
     }),
     {
-      name: 'sdf-labeler-project-store',
+      name: "sdf-labeler-project-store",
       partialize: (state) => ({
         // Only persist these fields
         projects: state.projects,
@@ -185,6 +198,6 @@ export const useProjectStore = create<ProjectState>()(
         brushRadius: state.brushRadius,
         sliceThickness: state.sliceThickness,
       }),
-    }
-  )
-)
+    },
+  ),
+);

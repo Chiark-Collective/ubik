@@ -1,26 +1,26 @@
 // ABOUTME: 3D component for placing and visualizing seed points
 // ABOUTME: Shows seed markers and propagation preview
 
-import { useRef, useCallback, useState } from 'react'
-import { useThree, useFrame } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
-import * as THREE from 'three'
+import { useRef, useCallback, useState } from "react";
+import { useThree, useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
+import * as THREE from "three";
 
-import { useProjectStore } from '../../stores/projectStore'
-import type { SeedPoint } from '../modes/SeedMode'
+import { useProjectStore } from "../../stores/projectStore";
+import type { SeedPoint } from "../modes/SeedMode";
 
 const COLORS = {
-  solid: '#3b82f6',
-  empty: '#f97316',
-  surface: '#22c55e',
-  ghost: '#ffffff',
-}
+  solid: "#3b82f6",
+  empty: "#f97316",
+  surface: "#22c55e",
+  ghost: "#ffffff",
+};
 
 interface SeedPlacerProps {
-  projectId: string
-  seeds: SeedPoint[]
-  onAddSeed: (position: [number, number, number]) => void
-  propagationRadius: number
+  projectId: string;
+  seeds: SeedPoint[];
+  onAddSeed: (position: [number, number, number]) => void;
+  propagationRadius: number;
 }
 
 export function SeedPlacer({
@@ -29,46 +29,50 @@ export function SeedPlacer({
   onAddSeed,
   propagationRadius,
 }: SeedPlacerProps) {
-  const mode = useProjectStore((s) => s.mode)
-  const activeLabel = useProjectStore((s) => s.activeLabel)
+  const mode = useProjectStore((s) => s.mode);
+  const activeLabel = useProjectStore((s) => s.activeLabel);
 
-  const { camera, raycaster, pointer } = useThree()
+  const { camera, raycaster, pointer } = useThree();
 
-  const [ghostPosition, setGhostPosition] = useState<[number, number, number] | null>(null)
+  const [ghostPosition, setGhostPosition] = useState<
+    [number, number, number] | null
+  >(null);
 
   // Ground plane for raycasting (XZ plane at Y=0, matching the click mesh)
-  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
-  const intersectPoint = useRef(new THREE.Vector3())
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const intersectPoint = useRef(new THREE.Vector3());
 
-  const isActive = mode === 'seed'
+  const isActive = mode === "seed";
 
   // Update ghost position on mouse move
   useFrame(() => {
     if (!isActive) {
-      setGhostPosition(null)
-      return
+      setGhostPosition(null);
+      return;
     }
 
-    raycaster.setFromCamera(pointer, camera)
+    raycaster.setFromCamera(pointer, camera);
 
-    if (raycaster.ray.intersectPlane(groundPlane.current, intersectPoint.current)) {
+    if (
+      raycaster.ray.intersectPlane(groundPlane.current, intersectPoint.current)
+    ) {
       setGhostPosition([
         intersectPoint.current.x,
         intersectPoint.current.y,
         intersectPoint.current.z,
-      ])
+      ]);
     }
-  })
+  });
 
   // Handle click to place seed (called by invisible click plane)
   const handleClick = useCallback(() => {
-    if (!isActive || !ghostPosition) return
-    onAddSeed(ghostPosition)
-  }, [isActive, ghostPosition, onAddSeed])
+    if (!isActive || !ghostPosition) return;
+    onAddSeed(ghostPosition);
+  }, [isActive, ghostPosition, onAddSeed]);
 
-  if (!isActive) return null
+  if (!isActive) return null;
 
-  const color = COLORS[activeLabel]
+  const color = COLORS[activeLabel];
 
   return (
     <group>
@@ -133,5 +137,5 @@ export function SeedPlacer({
         <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
       </mesh>
     </group>
-  )
+  );
 }

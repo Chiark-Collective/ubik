@@ -1,15 +1,15 @@
 // ABOUTME: Compact help tooltip component for inline hints
 // ABOUTME: Shows question mark icon that reveals help text on hover
 
-import * as Tooltip from '@radix-ui/react-tooltip'
-import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 
 interface HelpTooltipProps {
-  content: string
-  side?: 'top' | 'right' | 'bottom' | 'left'
+  content: string;
+  side?: "top" | "right" | "bottom" | "left";
 }
 
-export function HelpTooltip({ content, side = 'top' }: HelpTooltipProps) {
+export function HelpTooltip({ content, side = "top" }: HelpTooltipProps) {
   return (
     <Tooltip.Provider delayDuration={200}>
       <Tooltip.Root>
@@ -33,5 +33,5 @@ export function HelpTooltip({ content, side = 'top' }: HelpTooltipProps) {
         </Tooltip.Portal>
       </Tooltip.Root>
     </Tooltip.Provider>
-  )
+  );
 }

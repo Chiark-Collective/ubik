@@ -120,9 +120,7 @@ class TestConstraintServiceCRUD:
         assert result.id == sample_box_constraint.id
         assert result.type == "box"
 
-    def test_get_constraint_not_exists(
-        self, constraint_service: ConstraintService, sample_project
-    ):
+    def test_get_constraint_not_exists(self, constraint_service: ConstraintService, sample_project):
         """Test getting a non-existent constraint returns None."""
         result = constraint_service.get(sample_project.id, "non-existent-id")
         assert result is None
@@ -228,9 +226,7 @@ class TestConstraintServicePersistence:
         """Test that constraints file is created."""
         constraint_service.add(sample_project.id, sample_box_constraint)
 
-        constraints_path = (
-            temp_data_dir / "projects" / sample_project.id / "constraints.json"
-        )
+        constraints_path = temp_data_dir / "projects" / sample_project.id / "constraints.json"
         assert constraints_path.exists()
 
 

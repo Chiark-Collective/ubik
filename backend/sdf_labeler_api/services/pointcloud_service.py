@@ -264,9 +264,7 @@ class PointCloudService:
 
         return normals
 
-    def _build_octree(
-        self, project_id: str, xyz: np.ndarray, normals: np.ndarray | None
-    ) -> None:
+    def _build_octree(self, project_id: str, xyz: np.ndarray, normals: np.ndarray | None) -> None:
         """Build octree for LOD streaming."""
         import json
 

@@ -1,37 +1,48 @@
 // ABOUTME: 3D brush painting mode panel for direct point selection
 // ABOUTME: Controls for brush size and painting settings
 
-import * as Slider from '@radix-ui/react-slider'
-import * as Switch from '@radix-ui/react-switch'
+import * as Slider from "@radix-ui/react-slider";
+import * as Switch from "@radix-ui/react-switch";
 
-import { useProjectStore } from '../../stores/projectStore'
+import { useProjectStore } from "../../stores/projectStore";
 
 interface BrushModeProps {
-  depthAware: boolean
-  setDepthAware: (value: boolean) => void
+  depthAware: boolean;
+  setDepthAware: (value: boolean) => void;
 }
 
 export function BrushMode({ depthAware, setDepthAware }: BrushModeProps) {
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const brushRadius = useProjectStore((s) => s.brushRadius)
-  const setBrushRadius = useProjectStore((s) => s.setBrushRadius)
-  const selectedPointIndices = useProjectStore((s) => s.selectedPointIndices)
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const brushRadius = useProjectStore((s) => s.brushRadius);
+  const setBrushRadius = useProjectStore((s) => s.setBrushRadius);
+  const selectedPointIndices = useProjectStore((s) => s.selectedPointIndices);
 
-  const labelColor = activeLabel === 'solid' ? 'text-solid' : activeLabel === 'empty' ? 'text-empty' : 'text-surface'
+  const labelColor =
+    activeLabel === "solid"
+      ? "text-solid"
+      : activeLabel === "empty"
+        ? "text-empty"
+        : "text-surface";
 
   return (
     <div className="p-4 space-y-4">
       {/* Instructions */}
       <div className="p-3 bg-gray-800/50 rounded-lg text-sm text-gray-400">
         <p className="mb-2">
-          <strong className="text-white">Click + drag</strong> in 3D space to paint points
+          <strong className="text-white">Click + drag</strong> in 3D space to
+          paint points
         </p>
         <p className="mb-2">
           <strong className="text-white">Scroll</strong> to adjust brush size
         </p>
         <p>
-          Label: <span className={`font-medium ${labelColor}`}>
-            {activeLabel === 'solid' ? 'Solid (inside)' : activeLabel === 'empty' ? 'Empty (outside)' : 'Surface'}
+          Label:{" "}
+          <span className={`font-medium ${labelColor}`}>
+            {activeLabel === "solid"
+              ? "Solid (inside)"
+              : activeLabel === "empty"
+                ? "Empty (outside)"
+                : "Surface"}
           </span>
         </p>
       </div>
@@ -52,7 +63,9 @@ export function BrushMode({ depthAware, setDepthAware }: BrushModeProps) {
           <h4 className="text-xs font-medium text-gray-500 uppercase">
             Brush Radius
           </h4>
-          <span className="text-sm text-gray-400">{brushRadius.toFixed(2)}</span>
+          <span className="text-sm text-gray-400">
+            {brushRadius.toFixed(2)}
+          </span>
         </div>
         <Slider.Root
           value={[brushRadius]}
@@ -80,13 +93,13 @@ export function BrushMode({ depthAware, setDepthAware }: BrushModeProps) {
           onCheckedChange={setDepthAware}
           className={`
             relative w-10 h-6 rounded-full transition-colors
-            ${depthAware ? 'bg-blue-600' : 'bg-gray-700'}
+            ${depthAware ? "bg-blue-600" : "bg-gray-700"}
           `}
         >
           <Switch.Thumb
             className={`
               block w-4 h-4 rounded-full bg-white transition-transform
-              ${depthAware ? 'translate-x-5' : 'translate-x-1'}
+              ${depthAware ? "translate-x-5" : "translate-x-1"}
             `}
           />
         </Switch.Root>
@@ -131,5 +144,5 @@ export function BrushMode({ depthAware, setDepthAware }: BrushModeProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

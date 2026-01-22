@@ -26,9 +26,7 @@ class PocketInfo(BaseModel):
     bounds_low: tuple[float, float, float] = Field(..., description="AABB minimum corner")
     bounds_high: tuple[float, float, float] = Field(..., description="AABB maximum corner")
     volume_estimate: float = Field(..., description="Estimated volume in world units cubed")
-    is_toggled_solid: bool = Field(
-        default=False, description="Whether user marked this as solid"
-    )
+    is_toggled_solid: bool = Field(default=False, description="Whether user marked this as solid")
 
 
 class VoxelGridMetadata(BaseModel):

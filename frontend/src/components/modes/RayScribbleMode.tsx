@@ -1,40 +1,40 @@
 // ABOUTME: Settings panel for ray-scribble annotation mode
 // ABOUTME: Controls empty band width, spray effect settings, and displays scribbling instructions
 
-import * as Slider from '@radix-ui/react-slider'
-import * as Switch from '@radix-ui/react-switch'
-import * as ToggleGroup from '@radix-ui/react-toggle-group'
-import { HelpTooltip } from '../ui/HelpTooltip'
-import type { Handedness } from '../../stores/sprayEffectStore'
+import * as Slider from "@radix-ui/react-slider";
+import * as Switch from "@radix-ui/react-switch";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { HelpTooltip } from "../ui/HelpTooltip";
+import type { Handedness } from "../../stores/sprayEffectStore";
 
 export interface LocalSpacingStatus {
-  isReady: boolean
-  isComputing: boolean
-  progress: number
-  globalMean: number | null
+  isReady: boolean;
+  isComputing: boolean;
+  progress: number;
+  globalMean: number | null;
 }
 
 export interface RayScribbleModeProps {
-  emptyBandWidth: number
-  setEmptyBandWidth: (width: number) => void
-  surfaceBandWidth: number
-  setSurfaceBandWidth: (width: number) => void
-  backBufferWidth: number
-  setBackBufferWidth: (width: number) => void
-  useAdaptiveBackBuffer: boolean
-  setUseAdaptiveBackBuffer: (use: boolean) => void
-  backBufferCoefficient: number
-  setBackBufferCoefficient: (coeff: number) => void
-  localSpacingStatus: LocalSpacingStatus
-  isScribbling: boolean
-  strokeCount: number
-  onClearStrokes: () => void
+  emptyBandWidth: number;
+  setEmptyBandWidth: (width: number) => void;
+  surfaceBandWidth: number;
+  setSurfaceBandWidth: (width: number) => void;
+  backBufferWidth: number;
+  setBackBufferWidth: (width: number) => void;
+  useAdaptiveBackBuffer: boolean;
+  setUseAdaptiveBackBuffer: (use: boolean) => void;
+  backBufferCoefficient: number;
+  setBackBufferCoefficient: (coeff: number) => void;
+  localSpacingStatus: LocalSpacingStatus;
+  isScribbling: boolean;
+  strokeCount: number;
+  onClearStrokes: () => void;
   // Spray effect settings
-  handedness: Handedness
-  setHandedness: (hand: Handedness) => void
-  particleDensity: number
-  setParticleDensity: (density: number) => void
-  qualityTier: string
+  handedness: Handedness;
+  setHandedness: (hand: Handedness) => void;
+  particleDensity: number;
+  setParticleDensity: (density: number) => void;
+  qualityTier: string;
 }
 
 export function RayScribbleMode({
@@ -72,7 +72,9 @@ export function RayScribbleMode({
             <label className="text-gray-400">Empty band</label>
             <HelpTooltip content="Distance before the hit point to mark as empty space" />
           </div>
-          <span className="text-gray-300 tabular-nums">{emptyBandWidth.toFixed(2)}</span>
+          <span className="text-gray-300 tabular-nums">
+            {emptyBandWidth.toFixed(2)}
+          </span>
         </div>
         <Slider.Root
           className="relative flex items-center select-none touch-none w-full h-5"
@@ -99,7 +101,9 @@ export function RayScribbleMode({
             <label className="text-gray-400">Surface band</label>
             <HelpTooltip content="Width of the surface region around the hit point" />
           </div>
-          <span className="text-gray-300 tabular-nums">{surfaceBandWidth.toFixed(3)}</span>
+          <span className="text-gray-300 tabular-nums">
+            {surfaceBandWidth.toFixed(3)}
+          </span>
         </div>
         <Slider.Root
           className="relative flex items-center select-none touch-none w-full h-5"
@@ -124,7 +128,9 @@ export function RayScribbleMode({
         {/* Adaptive toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <label className="text-sm text-gray-400">Adaptive back buffer</label>
+            <label className="text-sm text-gray-400">
+              Adaptive back buffer
+            </label>
             <HelpTooltip content="Use local point spacing to determine back buffer. Each point's 'thickness' is based on its neighbors' distances." />
           </div>
           <Switch.Root
@@ -146,7 +152,9 @@ export function RayScribbleMode({
                   <label className="text-gray-400">Buffer Zone</label>
                   <HelpTooltip content="Size of impenetrable zone around surface. Higher = more protection from bleed-through. Measured in multiples of local point spacing." />
                 </div>
-                <span className="text-gray-300 tabular-nums">{backBufferCoefficient.toFixed(1)}×</span>
+                <span className="text-gray-300 tabular-nums">
+                  {backBufferCoefficient.toFixed(1)}×
+                </span>
               </div>
               <Slider.Root
                 className="relative flex items-center select-none touch-none w-full h-5"
@@ -170,13 +178,20 @@ export function RayScribbleMode({
             <div className="text-xs text-gray-500">
               {localSpacingStatus.isComputing ? (
                 <span className="text-yellow-500">
-                  Computing spacing... {Math.round(localSpacingStatus.progress * 100)}%
+                  Computing spacing...{" "}
+                  {Math.round(localSpacingStatus.progress * 100)}%
                 </span>
-              ) : localSpacingStatus.isReady && localSpacingStatus.globalMean != null ? (
+              ) : localSpacingStatus.isReady &&
+                localSpacingStatus.globalMean != null ? (
                 <span className="text-green-500">
-                  Ready — buffer: {(localSpacingStatus.globalMean * backBufferCoefficient).toFixed(3)}m
+                  Ready — buffer:{" "}
+                  {(
+                    localSpacingStatus.globalMean * backBufferCoefficient
+                  ).toFixed(3)}
+                  m
                   <span className="text-gray-500 ml-1">
-                    ({localSpacingStatus.globalMean.toFixed(4)} × {backBufferCoefficient})
+                    ({localSpacingStatus.globalMean.toFixed(4)} ×{" "}
+                    {backBufferCoefficient})
                   </span>
                 </span>
               ) : (
@@ -194,7 +209,9 @@ export function RayScribbleMode({
                 <label className="text-gray-400">Back buffer</label>
                 <HelpTooltip content="Fixed distance past the surface to sample. 0 = no bleed-through (recommended for thin surfaces)" />
               </div>
-              <span className="text-gray-300 tabular-nums">{backBufferWidth.toFixed(3)}</span>
+              <span className="text-gray-300 tabular-nums">
+                {backBufferWidth.toFixed(3)}
+              </span>
             </div>
             <Slider.Root
               className="relative flex items-center select-none touch-none w-full h-5"
@@ -226,16 +243,19 @@ export function RayScribbleMode({
           <ToggleGroup.Root
             type="single"
             value={handedness}
-            onValueChange={(value) => value && setHandedness(value as Handedness)}
+            onValueChange={(value) =>
+              value && setHandedness(value as Handedness)
+            }
             className="flex gap-0.5"
           >
             <ToggleGroup.Item
               value="left"
               className={`
                 px-2 py-1 rounded-l border text-xs font-medium transition-colors
-                ${handedness === 'left'
-                  ? 'border-purple-500 bg-purple-500/10 text-purple-400'
-                  : 'border-gray-700 hover:border-gray-600 text-gray-400'
+                ${
+                  handedness === "left"
+                    ? "border-purple-500 bg-purple-500/10 text-purple-400"
+                    : "border-gray-700 hover:border-gray-600 text-gray-400"
                 }
               `}
             >
@@ -245,9 +265,10 @@ export function RayScribbleMode({
               value="right"
               className={`
                 px-2 py-1 rounded-r border border-l-0 text-xs font-medium transition-colors
-                ${handedness === 'right'
-                  ? 'border-purple-500 bg-purple-500/10 text-purple-400'
-                  : 'border-gray-700 hover:border-gray-600 text-gray-400'
+                ${
+                  handedness === "right"
+                    ? "border-purple-500 bg-purple-500/10 text-purple-400"
+                    : "border-gray-700 hover:border-gray-600 text-gray-400"
                 }
               `}
             >
@@ -263,7 +284,9 @@ export function RayScribbleMode({
               <label className="text-gray-400">Spray density</label>
               <HelpTooltip content="Density of spray particles. Higher values create thicker spray." />
             </div>
-            <span className="text-gray-300 tabular-nums">{particleDensity.toFixed(1)}×</span>
+            <span className="text-gray-300 tabular-nums">
+              {particleDensity.toFixed(1)}×
+            </span>
           </div>
           <Slider.Root
             className="relative flex items-center select-none touch-none w-full h-5"
@@ -308,5 +331,5 @@ export function RayScribbleMode({
         )}
       </div>
     </div>
-  )
+  );
 }

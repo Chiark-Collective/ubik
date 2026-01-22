@@ -2,17 +2,17 @@
 // ABOUTME: Provides consistent loading indication across the app
 
 interface SpinnerProps {
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
+  size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
 const sizes = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
-}
+  sm: "w-4 h-4",
+  md: "w-6 h-6",
+  lg: "w-8 h-8",
+};
 
-export function Spinner({ size = 'md', className = '' }: SpinnerProps) {
+export function Spinner({ size = "md", className = "" }: SpinnerProps) {
   return (
     <svg
       className={`animate-spin ${sizes[size]} ${className}`}
@@ -34,16 +34,22 @@ export function Spinner({ size = 'md', className = '' }: SpinnerProps) {
         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
       />
     </svg>
-  )
+  );
 }
 
 // Button with loading state
 interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  loading?: boolean
-  children: React.ReactNode
+  loading?: boolean;
+  children: React.ReactNode;
 }
 
-export function LoadingButton({ loading, children, disabled, className = '', ...props }: LoadingButtonProps) {
+export function LoadingButton({
+  loading,
+  children,
+  disabled,
+  className = "",
+  ...props
+}: LoadingButtonProps) {
   return (
     <button
       {...props}
@@ -55,7 +61,7 @@ export function LoadingButton({ loading, children, disabled, className = '', ...
           <Spinner size="sm" />
         </span>
       )}
-      <span className={loading ? 'opacity-0' : ''}>{children}</span>
+      <span className={loading ? "opacity-0" : ""}>{children}</span>
     </button>
-  )
+  );
 }

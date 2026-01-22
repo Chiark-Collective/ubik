@@ -1,26 +1,26 @@
 // ABOUTME: Global keyboard shortcuts hook
 // ABOUTME: Handles mode switching, undo/redo, and tool shortcuts
 
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
-import { useProjectStore, type LabelType } from '../stores/projectStore'
-import { useLabelStore } from '../stores/labelStore'
-import { usePrimitiveStore } from '../stores/primitiveStore'
+import { useProjectStore, type LabelType } from "../stores/projectStore";
+import { useLabelStore } from "../stores/labelStore";
+import { usePrimitiveStore } from "../stores/primitiveStore";
 
 export function useKeyboardShortcuts() {
-  const mode = useProjectStore((s) => s.mode)
-  const setMode = useProjectStore((s) => s.setMode)
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const setActiveLabel = useProjectStore((s) => s.setActiveLabel)
-  const currentProjectId = useProjectStore((s) => s.currentProjectId)
-  const brushRadius = useProjectStore((s) => s.brushRadius)
-  const setBrushRadius = useProjectStore((s) => s.setBrushRadius)
+  const mode = useProjectStore((s) => s.mode);
+  const setMode = useProjectStore((s) => s.setMode);
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const setActiveLabel = useProjectStore((s) => s.setActiveLabel);
+  const currentProjectId = useProjectStore((s) => s.currentProjectId);
+  const brushRadius = useProjectStore((s) => s.brushRadius);
+  const setBrushRadius = useProjectStore((s) => s.setBrushRadius);
 
-  const undo = useLabelStore((s) => s.undo)
-  const redo = useLabelStore((s) => s.redo)
+  const undo = useLabelStore((s) => s.undo);
+  const redo = useLabelStore((s) => s.redo);
 
-  const setPrimitiveType = usePrimitiveStore((s) => s.setPrimitiveType)
-  const cancelPlacing = usePrimitiveStore((s) => s.cancelPlacing)
+  const setPrimitiveType = usePrimitiveStore((s) => s.setPrimitiveType);
+  const cancelPlacing = usePrimitiveStore((s) => s.cancelPlacing);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -29,161 +29,161 @@ export function useKeyboardShortcuts() {
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
-        return
+        return;
       }
 
       // Meta/Ctrl key combinations
       if (e.metaKey || e.ctrlKey) {
         switch (e.key.toLowerCase()) {
-          case 'z':
-            e.preventDefault()
+          case "z":
+            e.preventDefault();
             if (e.shiftKey) {
               // Redo
-              if (currentProjectId) redo(currentProjectId)
+              if (currentProjectId) redo(currentProjectId);
             } else {
               // Undo
-              if (currentProjectId) undo(currentProjectId)
+              if (currentProjectId) undo(currentProjectId);
             }
-            break
+            break;
         }
-        return
+        return;
       }
 
       // Mode switching (without modifiers)
       switch (e.key.toLowerCase()) {
         // Global mode shortcuts
-        case 'escape':
-          e.preventDefault()
-          if (mode !== 'orbit') {
-            setMode('orbit')
-            cancelPlacing()
+        case "escape":
+          e.preventDefault();
+          if (mode !== "orbit") {
+            setMode("orbit");
+            cancelPlacing();
           }
-          break
+          break;
 
         // Primary modes
-        case 'r':
-          e.preventDefault()
-          setMode('ray_scribble')
-          break
+        case "r":
+          e.preventDefault();
+          setMode("ray_scribble");
+          break;
 
-        case 'c':
-          e.preventDefault()
-          setMode('click_pocket')
-          break
+        case "c":
+          e.preventDefault();
+          setMode("click_pocket");
+          break;
 
-        case 's':
+        case "s":
           // Only switch mode if not Ctrl+S (save)
           if (!e.metaKey && !e.ctrlKey) {
-            e.preventDefault()
-            setMode('slice')
+            e.preventDefault();
+            setMode("slice");
           }
-          break
+          break;
 
-        case 'a':
-          e.preventDefault()
-          setMode('auto')
-          break
+        case "a":
+          e.preventDefault();
+          setMode("auto");
+          break;
 
         // Secondary modes
-        case 'p':
-          e.preventDefault()
-          setMode('primitive')
-          break
+        case "p":
+          e.preventDefault();
+          setMode("primitive");
+          break;
 
-        case 'b':
-          e.preventDefault()
-          if (mode === 'primitive') {
+        case "b":
+          e.preventDefault();
+          if (mode === "primitive") {
             // In primitive mode, B = box
-            setPrimitiveType('box')
+            setPrimitiveType("box");
           } else {
             // Otherwise, B = brush mode
-            setMode('brush')
+            setMode("brush");
           }
-          break
+          break;
 
-        case 'g':
-          e.preventDefault()
-          setMode('seed')
-          break
+        case "g":
+          e.preventDefault();
+          setMode("seed");
+          break;
 
-        case 'i':
-          e.preventDefault()
-          setMode('import')
-          break
+        case "i":
+          e.preventDefault();
+          setMode("import");
+          break;
 
         // Toggle label type
-        case 'tab':
-          e.preventDefault()
-          const labels: LabelType[] = ['solid', 'empty', 'surface']
-          const currentIndex = labels.indexOf(activeLabel)
-          const nextIndex = (currentIndex + 1) % labels.length
-          setActiveLabel(labels[nextIndex])
-          break
+        case "tab":
+          e.preventDefault();
+          const labels: LabelType[] = ["solid", "empty", "surface"];
+          const currentIndex = labels.indexOf(activeLabel);
+          const nextIndex = (currentIndex + 1) % labels.length;
+          setActiveLabel(labels[nextIndex]);
+          break;
 
         // Primitive type shortcuts (when in primitive mode)
-        case 'o':
-          if (mode === 'primitive') {
-            e.preventDefault()
-            setPrimitiveType('sphere')
+        case "o":
+          if (mode === "primitive") {
+            e.preventDefault();
+            setPrimitiveType("sphere");
           }
-          break
+          break;
 
-        case 'h':
-          if (mode === 'primitive') {
-            e.preventDefault()
-            setPrimitiveType('halfspace')
+        case "h":
+          if (mode === "primitive") {
+            e.preventDefault();
+            setPrimitiveType("halfspace");
           }
-          break
+          break;
 
-        case 'y':
+        case "y":
           // Y for cYlinder (C is now click_pocket)
-          if (mode === 'primitive') {
-            e.preventDefault()
-            setPrimitiveType('cylinder')
+          if (mode === "primitive") {
+            e.preventDefault();
+            setPrimitiveType("cylinder");
           }
-          break
+          break;
 
         // Brush size (when in brush mode)
-        case '[':
-          if (mode === 'brush') {
-            e.preventDefault()
-            setBrushRadius(Math.max(0.01, brushRadius - 0.05))
+        case "[":
+          if (mode === "brush") {
+            e.preventDefault();
+            setBrushRadius(Math.max(0.01, brushRadius - 0.05));
           }
-          break
+          break;
 
-        case ']':
-          if (mode === 'brush') {
-            e.preventDefault()
-            setBrushRadius(Math.min(2, brushRadius + 0.05))
+        case "]":
+          if (mode === "brush") {
+            e.preventDefault();
+            setBrushRadius(Math.min(2, brushRadius + 0.05));
           }
-          break
+          break;
 
         // Slice plane switching (when in slice mode)
-        case '1':
-          if (mode === 'slice') {
-            e.preventDefault()
-            useProjectStore.getState().setSlicePlane('xy')
+        case "1":
+          if (mode === "slice") {
+            e.preventDefault();
+            useProjectStore.getState().setSlicePlane("xy");
           }
-          break
+          break;
 
-        case '2':
-          if (mode === 'slice') {
-            e.preventDefault()
-            useProjectStore.getState().setSlicePlane('xz')
+        case "2":
+          if (mode === "slice") {
+            e.preventDefault();
+            useProjectStore.getState().setSlicePlane("xz");
           }
-          break
+          break;
 
-        case '3':
-          if (mode === 'slice') {
-            e.preventDefault()
-            useProjectStore.getState().setSlicePlane('yz')
+        case "3":
+          if (mode === "slice") {
+            e.preventDefault();
+            useProjectStore.getState().setSlicePlane("yz");
           }
-          break
+          break;
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     mode,
     setMode,
@@ -196,5 +196,5 @@ export function useKeyboardShortcuts() {
     cancelPlacing,
     brushRadius,
     setBrushRadius,
-  ])
+  ]);
 }

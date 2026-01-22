@@ -51,9 +51,7 @@ class TestProjectService:
         assert project.config.tsdf_trunc == 0.15
         assert project.config.knn_neighbors == 20
 
-    def test_create_project_creates_directory(
-        self, project_service: ProjectService, temp_data_dir
-    ):
+    def test_create_project_creates_directory(self, project_service: ProjectService, temp_data_dir):
         """Test that creating a project creates the project directory."""
         request = ProjectCreate(name="Directory Test")
         project = project_service.create(request)

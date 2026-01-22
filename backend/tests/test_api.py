@@ -299,9 +299,7 @@ class TestConstraintEndpoints:
         )
         constraint_id = add_response.json()["id"]
 
-        response = client.delete(
-            f"/v1/projects/{project_id}/constraints/{constraint_id}"
-        )
+        response = client.delete(f"/v1/projects/{project_id}/constraints/{constraint_id}")
 
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
@@ -312,9 +310,7 @@ class TestConstraintEndpoints:
 
     def test_delete_constraint_not_found(self, client: TestClient, project_id: str):
         """Test deleting non-existent constraint."""
-        response = client.delete(
-            f"/v1/projects/{project_id}/constraints/non-existent"
-        )
+        response = client.delete(f"/v1/projects/{project_id}/constraints/non-existent")
         assert response.status_code == 404
 
     def test_constraint_project_not_found(self, client: TestClient):
@@ -446,9 +442,7 @@ class TestExportEndpoints:
     """Tests for export endpoints."""
 
     @pytest.fixture
-    def project_with_samples(
-        self, client: TestClient, temp_data_dir: Path
-    ) -> str:
+    def project_with_samples(self, client: TestClient, temp_data_dir: Path) -> str:
         """Create a project with generated samples."""
         # Create project
         response = client.post("/v1/projects", json={"name": "Export Test"})

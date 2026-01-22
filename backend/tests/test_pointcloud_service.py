@@ -185,11 +185,13 @@ class TestEstimateNormals:
         # Points on the XY plane (z=0)
         rng = np.random.default_rng(42)
         n_points = 100
-        xyz = np.column_stack([
-            rng.uniform(0, 1, n_points),
-            rng.uniform(0, 1, n_points),
-            np.zeros(n_points),
-        ])
+        xyz = np.column_stack(
+            [
+                rng.uniform(0, 1, n_points),
+                rng.uniform(0, 1, n_points),
+                np.zeros(n_points),
+            ]
+        )
 
         normals = pointcloud_service._estimate_normals(xyz, k=16)
 
@@ -254,9 +256,7 @@ class TestOctreeOperations:
         assert tile["normals"] is not None
         assert len(tile["normals"]) > 0
 
-    def test_get_tile_root(
-        self, pointcloud_service: PointCloudService, temp_data_dir: Path
-    ):
+    def test_get_tile_root(self, pointcloud_service: PointCloudService, temp_data_dir: Path):
         """Test getting root tile data."""
         project_id = "test-project"
         rng = np.random.default_rng(42)
@@ -405,7 +405,7 @@ class TestUploadAndProcess:
     ):
         """Test that upload creates octree metadata."""
         csv_content = b"x,y,z\n" + b"\n".join(
-            f"{i*0.01},{i*0.01},{i*0.01}".encode() for i in range(100)
+            f"{i * 0.01},{i * 0.01},{i * 0.01}".encode() for i in range(100)
         )
 
         mock_file = MagicMock()

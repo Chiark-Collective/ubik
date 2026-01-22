@@ -38,6 +38,7 @@ from sdf_labeler_api.models.constraints import SignConvention
 from sdf_labeler_api.models.auto_analysis import (
     ApplyConstraintsRequest,
     AutoAnalysisResult,
+    AutoAnalyzeRequest,
 )
 
 
@@ -223,8 +224,8 @@ async def get_pointcloud_metadata(project_id: str):
 async def add_constraint(project_id: str, constraint: Constraint):
     """Add a constraint to the project."""
     print(f"[DEBUG] add_constraint: type={constraint.type}", flush=True)
-    if hasattr(constraint, 'back_buffer_coefficient'):
-        print(f"[DEBUG] back_buffer_coefficient={constraint.back_buffer_coefficient}", flush=True)
+    if constraint.type == "ray_carve":
+        print(f"[DEBUG] back_buffer_coefficient={constraint.back_buffer_coefficient}", flush=True)  # type: ignore[union-attr]
     project = project_service.get(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -351,17 +352,18 @@ async def toggle_pocket(
 @app.post("/v1/projects/{project_id}/auto/analyze", response_model=AutoAnalysisResult)
 async def auto_analyze(
     project_id: str,
-    algorithms: str | None = Query(
-        default=None,
-        description="Comma-separated algorithms: pocket,convex_hull,sky_visibility,normal_offset",
-    ),
-    recompute: bool = Query(default=False),
+    request: AutoAnalyzeRequest | None = None,
 ):
     """Run automatic SDF region detection using multiple algorithms.
 
     Generates spatial constraints (boxes, halfspaces, pockets) that define
     regions of 3D space around the surface for SOLID/EMPTY labeling.
     Returns generated constraints for user review and approval.
+
+    Request body:
+        algorithms: List of algorithms to run (default: all)
+        recompute: Force recomputation even if cached
+        options: Tunable hyperparameters for algorithms
     """
     project = project_service.get(project_id)
     if project is None:
@@ -369,16 +371,16 @@ async def auto_analyze(
     if project.point_cloud_id is None:
         raise HTTPException(status_code=400, detail="No point cloud uploaded")
 
-    # Parse algorithm list
-    algo_list = None
-    if algorithms:
-        algo_list = [a.strip() for a in algorithms.split(",")]
+    # Use default request if none provided
+    if request is None:
+        request = AutoAnalyzeRequest()
 
     try:
         return await auto_analysis_service.analyze(
             project_id,
-            algorithms=algo_list,
-            recompute=recompute,
+            algorithms=request.algorithms,
+            recompute=request.recompute,
+            options=request.options,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

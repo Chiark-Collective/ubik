@@ -1,27 +1,30 @@
 // ABOUTME: Seed + propagate mode panel for region growing labeling
 // ABOUTME: Controls for seed placement and spatial propagation parameters
 
-import { useState } from 'react'
-import * as Slider from '@radix-ui/react-slider'
-import * as ToggleGroup from '@radix-ui/react-toggle-group'
-import { useMutation } from '@tanstack/react-query'
+import { useState } from "react";
+import * as Slider from "@radix-ui/react-slider";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { useMutation } from "@tanstack/react-query";
 
-import { useProjectStore } from '../../stores/projectStore'
-import { useLabelStore, type SeedPropagationConstraint } from '../../stores/labelStore'
+import { useProjectStore } from "../../stores/projectStore";
+import {
+  useLabelStore,
+  type SeedPropagationConstraint,
+} from "../../stores/labelStore";
 
-type PropagationMethod = 'euclidean' | 'geodesic'
+type PropagationMethod = "euclidean" | "geodesic";
 
 interface SeedModeProps {
-  projectId: string
-  seeds: SeedPoint[]
-  onAddSeed: (position: [number, number, number]) => void
-  onRemoveSeed: (index: number) => void
-  onClearSeeds: () => void
+  projectId: string;
+  seeds: SeedPoint[];
+  onAddSeed: (position: [number, number, number]) => void;
+  onRemoveSeed: (index: number) => void;
+  onClearSeeds: () => void;
 }
 
 export interface SeedPoint {
-  position: [number, number, number]
-  pointIndex?: number
+  position: [number, number, number];
+  pointIndex?: number;
 }
 
 export function SeedMode({
@@ -31,66 +34,72 @@ export function SeedMode({
   onRemoveSeed,
   onClearSeeds,
 }: SeedModeProps) {
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions)
-  const addConstraint = useLabelStore((s) => s.addConstraint)
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions);
+  const addConstraint = useLabelStore((s) => s.addConstraint);
 
-  const [propagationRadius, setPropagationRadius] = useState(0.5)
-  const [propagationMethod, setPropagationMethod] = useState<PropagationMethod>('euclidean')
-  const [isAnimating, setIsAnimating] = useState(false)
+  const [propagationRadius, setPropagationRadius] = useState(0.5);
+  const [propagationMethod, setPropagationMethod] =
+    useState<PropagationMethod>("euclidean");
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  const labelColor = activeLabel === 'solid' ? 'text-solid' : activeLabel === 'empty' ? 'text-empty' : 'text-surface'
+  const labelColor =
+    activeLabel === "solid"
+      ? "text-solid"
+      : activeLabel === "empty"
+        ? "text-empty"
+        : "text-surface";
 
   // Propagation mutation - finds all points within radius of each seed
   const propagateMutation = useMutation({
     mutationFn: async () => {
-      const propagatedIndices: number[] = []
-      const confidences: number[] = []
+      const propagatedIndices: number[] = [];
+      const confidences: number[] = [];
 
       if (!pointCloudPositions || pointCloudPositions.length === 0) {
-        return { propagatedIndices, confidences }
+        return { propagatedIndices, confidences };
       }
 
-      const radiusSquared = propagationRadius * propagationRadius
-      const numPoints = pointCloudPositions.length / 3
-      const foundIndices = new Set<number>()
+      const radiusSquared = propagationRadius * propagationRadius;
+      const numPoints = pointCloudPositions.length / 3;
+      const foundIndices = new Set<number>();
 
       // For each seed, find all points within the propagation radius
       for (const seed of seeds) {
-        const [sx, sy, sz] = seed.position
+        const [sx, sy, sz] = seed.position;
 
         for (let i = 0; i < numPoints; i++) {
-          if (foundIndices.has(i)) continue
+          if (foundIndices.has(i)) continue;
 
-          const px = pointCloudPositions[i * 3]
-          const py = pointCloudPositions[i * 3 + 1]
-          const pz = pointCloudPositions[i * 3 + 2]
+          const px = pointCloudPositions[i * 3];
+          const py = pointCloudPositions[i * 3 + 1];
+          const pz = pointCloudPositions[i * 3 + 2];
 
-          const dx = px - sx
-          const dy = py - sy
-          const dz = pz - sz
-          const distSquared = dx * dx + dy * dy + dz * dz
+          const dx = px - sx;
+          const dy = py - sy;
+          const dz = pz - sz;
+          const distSquared = dx * dx + dy * dy + dz * dz;
 
           if (distSquared <= radiusSquared) {
-            foundIndices.add(i)
+            foundIndices.add(i);
             // Confidence based on distance (closer = higher)
-            const dist = Math.sqrt(distSquared)
-            const confidence = 1.0 - (dist / propagationRadius)
-            propagatedIndices.push(i)
-            confidences.push(confidence)
+            const dist = Math.sqrt(distSquared);
+            const confidence = 1.0 - dist / propagationRadius;
+            propagatedIndices.push(i);
+            confidences.push(confidence);
           }
         }
       }
 
-      return { propagatedIndices, confidences }
+      return { propagatedIndices, confidences };
     },
     onSuccess: (data) => {
-      if (seeds.length === 0) return
+      if (seeds.length === 0) return;
 
       // Create seed propagation constraint
       const constraint: SeedPropagationConstraint = {
         id: crypto.randomUUID(),
-        type: 'seed_propagation',
+        type: "seed_propagation",
         sign: activeLabel,
         weight: 1.0,
         createdAt: Date.now(),
@@ -98,19 +107,19 @@ export function SeedMode({
         propagationRadius,
         propagatedIndices: data.propagatedIndices,
         confidences: data.confidences,
-      }
+      };
 
-      addConstraint(projectId, constraint)
-      onClearSeeds()
-      setIsAnimating(false)
+      addConstraint(projectId, constraint);
+      onClearSeeds();
+      setIsAnimating(false);
     },
-  })
+  });
 
   const handlePropagate = () => {
-    if (seeds.length === 0) return
-    setIsAnimating(true)
-    propagateMutation.mutate()
-  }
+    if (seeds.length === 0) return;
+    setIsAnimating(true);
+    propagateMutation.mutate();
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -120,11 +129,17 @@ export function SeedMode({
           <strong className="text-white">Click</strong> to place seed points
         </p>
         <p className="mb-2">
-          <strong className="text-white">Propagate</strong> expands seeds to nearby points
+          <strong className="text-white">Propagate</strong> expands seeds to
+          nearby points
         </p>
         <p>
-          Label: <span className={`font-medium ${labelColor}`}>
-            {activeLabel === 'solid' ? 'Solid (inside)' : activeLabel === 'empty' ? 'Empty (outside)' : 'Surface'}
+          Label:{" "}
+          <span className={`font-medium ${labelColor}`}>
+            {activeLabel === "solid"
+              ? "Solid (inside)"
+              : activeLabel === "empty"
+                ? "Empty (outside)"
+                : "Surface"}
           </span>
         </p>
       </div>
@@ -143,7 +158,8 @@ export function SeedMode({
                 className="flex items-center justify-between py-1 text-xs text-gray-400"
               >
                 <span>
-                  ({seed.position[0].toFixed(2)}, {seed.position[1].toFixed(2)}, {seed.position[2].toFixed(2)})
+                  ({seed.position[0].toFixed(2)}, {seed.position[1].toFixed(2)},{" "}
+                  {seed.position[2].toFixed(2)})
                 </span>
                 <button
                   onClick={() => onRemoveSeed(index)}
@@ -163,7 +179,9 @@ export function SeedMode({
           <h4 className="text-xs font-medium text-gray-500 uppercase">
             Propagation Radius
           </h4>
-          <span className="text-sm text-gray-400">{propagationRadius.toFixed(2)}</span>
+          <span className="text-sm text-gray-400">
+            {propagationRadius.toFixed(2)}
+          </span>
         </div>
         <Slider.Root
           value={[propagationRadius]}
@@ -188,16 +206,19 @@ export function SeedMode({
         <ToggleGroup.Root
           type="single"
           value={propagationMethod}
-          onValueChange={(value) => value && setPropagationMethod(value as PropagationMethod)}
+          onValueChange={(value) =>
+            value && setPropagationMethod(value as PropagationMethod)
+          }
           className="flex gap-2"
         >
           <ToggleGroup.Item
             value="euclidean"
             className={`
               flex-1 px-3 py-2 rounded-lg border transition-colors text-sm
-              ${propagationMethod === 'euclidean'
-                ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                : 'border-gray-700 hover:border-gray-600 text-gray-400'
+              ${
+                propagationMethod === "euclidean"
+                  ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                  : "border-gray-700 hover:border-gray-600 text-gray-400"
               }
             `}
           >
@@ -207,9 +228,10 @@ export function SeedMode({
             value="geodesic"
             className={`
               flex-1 px-3 py-2 rounded-lg border transition-colors text-sm
-              ${propagationMethod === 'geodesic'
-                ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                : 'border-gray-700 hover:border-gray-600 text-gray-400'
+              ${
+                propagationMethod === "geodesic"
+                  ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                  : "border-gray-700 hover:border-gray-600 text-gray-400"
               }
             `}
           >
@@ -217,9 +239,9 @@ export function SeedMode({
           </ToggleGroup.Item>
         </ToggleGroup.Root>
         <p className="mt-1 text-xs text-gray-500">
-          {propagationMethod === 'euclidean'
-            ? 'Direct 3D distance'
-            : 'Surface-following distance'}
+          {propagationMethod === "euclidean"
+            ? "Direct 3D distance"
+            : "Surface-following distance"}
         </p>
       </div>
 
@@ -230,7 +252,9 @@ export function SeedMode({
           disabled={seeds.length === 0 || propagateMutation.isPending}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {propagateMutation.isPending || isAnimating ? 'Propagating...' : 'Propagate'}
+          {propagateMutation.isPending || isAnimating
+            ? "Propagating..."
+            : "Propagate"}
         </button>
 
         <button
@@ -269,5 +293,5 @@ export function SeedMode({
         </div>
       </div>
     </div>
-  )
+  );
 }
