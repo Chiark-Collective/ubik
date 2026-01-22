@@ -34,6 +34,13 @@ const ALL_ALGORITHMS: AlgorithmType[] = [
   "normal_idw",
 ];
 
+// Default enabled algorithms (excludes normal_idw due to sign issues with normals through surfaces)
+const DEFAULT_ENABLED_ALGORITHMS: AlgorithmType[] = [
+  "pocket",
+  "flood_fill",
+  "voxel_regions",
+];
+
 const ALGORITHM_LABELS: Record<AlgorithmType, string> = {
   pocket: "Pocket Detection",
   flood_fill: "Sky-Reachable Exterior",
@@ -155,7 +162,7 @@ export function AutoMode({
   const [showOptions, setShowOptions] = useState(false);
   // Track which algorithms are enabled for analysis
   const [enabledAlgorithms, setEnabledAlgorithms] = useState<Set<AlgorithmType>>(
-    new Set(ALL_ALGORITHMS)
+    new Set(DEFAULT_ENABLED_ALGORITHMS)
   );
   // Track which algorithms are expanded (showing their constraint items)
   const [expandedAlgorithms, setExpandedAlgorithms] = useState<Set<string>>(
