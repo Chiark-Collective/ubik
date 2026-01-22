@@ -1230,38 +1230,52 @@ class AutoAnalysisService:
             c_type = c.get("type")
 
             # Get representative point(s) for this constraint
-            query_points = self._get_constraint_query_points(c, c_type)
+            query_points, min_required = self._get_constraint_query_points(c, c_type)
 
-            # Check if any query point is within max_distance of point cloud
-            keep = False
+            # Count how many query points are within max_distance of point cloud
+            near_count = 0
             for point in query_points:
                 dist, _ = tree.query(point, k=1)
                 if dist <= max_distance:
-                    keep = True
-                    break
+                    near_count += 1
 
-            if keep:
+            # Keep if we have enough points near the surface
+            if near_count >= min_required:
                 filtered.append(constraint)
 
         return filtered
 
     def _get_constraint_query_points(
         self, constraint: dict, c_type: str | None
-    ) -> list[np.ndarray]:
+    ) -> tuple[list[np.ndarray], int]:
         """Get representative points for proximity checking.
 
-        For boxes, returns only the center - we want the center to be near
-        surface data, not just a corner touching.
+        For boxes, returns center and all 8 corners, requiring at least 2
+        points to be near surface data. This filters boxes where only one
+        corner touches (void boxes) while keeping boxes genuinely near surface.
+
         For sample points, returns the position.
         For other types, returns center if available.
+
+        Returns:
+            Tuple of (list of query points, minimum required near surface)
         """
         points: list[np.ndarray] = []
+        min_required = 1  # Default: at least 1 point must be near
 
         if c_type == "box":
-            # Only check center - if center is in void, box shouldn't exist
-            # Checking corners was too permissive (one corner touching = keep)
             center = np.array(constraint.get("center", [0, 0, 0]))
+            half = np.array(constraint.get("half_extents", [0, 0, 0]))
             points.append(center)
+            # Add all 8 corners
+            for dx in [-1, 1]:
+                for dy in [-1, 1]:
+                    for dz in [-1, 1]:
+                        corner = center + np.array([dx, dy, dz]) * half
+                        points.append(corner)
+            # Require at least 2 of 9 points (center + 8 corners) to be near surface
+            # This filters void boxes with only one corner touching
+            min_required = 2
 
         elif c_type == "sample_point":
             pos = constraint.get("position")
@@ -1285,7 +1299,7 @@ class AutoAnalysisService:
                     points.append(np.array(constraint[field]))
                     break
 
-        return points
+        return points, min_required
 
     def _save_results(self, project_id: str, result: AutoAnalysisResult) -> None:
         """Save analysis results to cache."""
