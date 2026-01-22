@@ -67,13 +67,13 @@ export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
   min_gap_size: 0.1,
   max_grid_dim: 200,
   cone_angle: 15.0,
-  max_boxes: 15,
+  max_boxes: 30,
   overlap_threshold: 0.5,
   idw_sample_count: 1000,
   idw_max_distance: 0.5,
   idw_power: 2.0,
   hull_filter_enabled: true,
-  hull_alpha: 2.0,
+  hull_alpha: 1.0,
 };
 
 interface AutoAnalysisState {

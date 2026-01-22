@@ -54,7 +54,7 @@ class AutoAnalysisOptions(BaseModel):
     )
 
     # Filtering
-    max_boxes: int = Field(default=15, ge=5, le=100, description="Maximum boxes per algorithm")
+    max_boxes: int = Field(default=30, ge=5, le=100, description="Maximum boxes per algorithm")
     overlap_threshold: float = Field(
         default=0.5,
         ge=0.1,
@@ -82,7 +82,7 @@ class AutoAnalysisOptions(BaseModel):
         description="Filter out constraints outside the X-Y alpha shape of point cloud",
     )
     hull_alpha: float = Field(
-        default=2.0,
+        default=1.0,
         ge=0.1,
         le=20.0,
         description="Alpha shape parameter (smaller = tighter fit to concave boundaries)",
