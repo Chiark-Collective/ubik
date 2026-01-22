@@ -84,9 +84,24 @@ export interface TileData {
   labels?: number[];
 }
 
+export type SamplingStrategy = "constant" | "density" | "inverse_square";
+
 export interface SampleGenerationRequest {
   total_samples?: number;
+
+  // Sampling strategy
+  strategy?: SamplingStrategy;
+
+  // CONSTANT strategy parameters
   samples_per_primitive?: number;
+
+  // DENSITY strategy parameters
+  samples_per_cubic_meter?: number;
+
+  // INVERSE_SQUARE strategy parameters
+  inverse_square_base_samples?: number;
+  inverse_square_falloff?: number;
+
   include_surface?: boolean;
   far_direction?: "outward" | "inward" | "bidirectional";
   apply_clipping?: boolean;

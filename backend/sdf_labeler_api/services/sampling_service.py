@@ -28,6 +28,7 @@ from sdf_labeler_api.models.samples import (
     ExportConfig,
     SampleGenerationRequest,
     SamplePreview,
+    SamplingStrategy,
     TrainingSample,
     TrainingSampleSet,
 )
@@ -200,20 +201,41 @@ class SamplingService:
         project: Project,
         request: SampleGenerationRequest,
     ) -> list[TrainingSample]:
-        """Generate samples from all constraints."""
+        """Generate samples from all constraints using the selected strategy."""
         rng = np.random.default_rng(request.seed)
         samples = []
-
-        n_samples = request.samples_per_primitive
         project_id = project.id
 
-        print(f"[DEBUG] Processing {len(constraints.constraints)} constraints", flush=True)
+        # Build KD-tree for inverse_square strategy (distance to surface)
+        surface_tree = None
+        if request.strategy == SamplingStrategy.INVERSE_SQUARE:
+            from scipy.spatial import KDTree
+
+            surface_tree = KDTree(xyz)
+
+        print(
+            f"[DEBUG] Processing {len(constraints.constraints)} constraints with strategy={request.strategy.value}",
+            flush=True,
+        )
         for constraint in constraints.constraints:
-            print(f"[DEBUG] Constraint type: {type(constraint).__name__}", flush=True)
+            # Compute sample count based on strategy
+            n_samples = self._compute_sample_count(constraint, request)
+
+            print(
+                f"[DEBUG] Constraint type: {type(constraint).__name__}, n_samples={n_samples}",
+                flush=True,
+            )
             if isinstance(constraint, BoxConstraint):
-                samples.extend(
-                    self._sample_box(constraint, rng, project.config.near_band, n_samples)
-                )
+                if request.strategy == SamplingStrategy.INVERSE_SQUARE:
+                    samples.extend(
+                        self._sample_box_inverse_square(
+                            constraint, rng, project.config.near_band, n_samples, surface_tree, request
+                        )
+                    )
+                else:
+                    samples.extend(
+                        self._sample_box(constraint, rng, project.config.near_band, n_samples)
+                    )
             elif isinstance(constraint, SphereConstraint):
                 samples.extend(
                     self._sample_sphere(constraint, rng, project.config.near_band, n_samples)
@@ -240,6 +262,49 @@ class SamplingService:
                 samples.extend(self._sample_sample_point(constraint))
 
         return samples
+
+    def _compute_sample_count(
+        self,
+        constraint: Any,
+        request: SampleGenerationRequest,
+    ) -> int:
+        """Compute number of samples for a constraint based on strategy."""
+        if request.strategy == SamplingStrategy.CONSTANT:
+            return request.samples_per_primitive
+
+        elif request.strategy == SamplingStrategy.DENSITY:
+            # Compute volume and scale by density
+            volume = self._compute_constraint_volume(constraint)
+            return max(10, int(volume * request.samples_per_cubic_meter))
+
+        elif request.strategy == SamplingStrategy.INVERSE_SQUARE:
+            # Base samples, actual distribution handled in sampling method
+            return request.inverse_square_base_samples
+
+        return request.samples_per_primitive
+
+    def _compute_constraint_volume(self, constraint: Any) -> float:
+        """Compute approximate volume of a constraint in cubic meters."""
+        if isinstance(constraint, BoxConstraint):
+            half = np.array(constraint.half_extents)
+            return float(np.prod(half * 2))  # length * width * height
+
+        elif isinstance(constraint, SphereConstraint):
+            return (4 / 3) * np.pi * (constraint.radius ** 3)
+
+        elif isinstance(constraint, PocketConstraint):
+            # Estimate from voxel count (assume ~0.01m voxels)
+            voxel_size = 0.01
+            return constraint.voxel_count * (voxel_size ** 3)
+
+        elif isinstance(constraint, BrushStrokeConstraint):
+            # Volume of spheres at each stroke point
+            n_points = len(constraint.stroke_points)
+            sphere_vol = (4 / 3) * np.pi * (constraint.radius ** 3)
+            return n_points * sphere_vol * 0.5  # Overlap factor
+
+        # Default: small volume
+        return 0.001
 
     def _sample_box(
         self,
@@ -287,6 +352,68 @@ class SamplingService:
                     is_free=constraint.sign == SignConvention.EMPTY,
                 )
             )
+
+        return samples
+
+    def _sample_box_inverse_square(
+        self,
+        constraint: BoxConstraint,
+        rng: np.random.Generator,
+        near_band: float,
+        n_samples: int,
+        surface_tree: Any,
+        request: SampleGenerationRequest,
+    ) -> list[TrainingSample]:
+        """Generate samples from a box with inverse-square density distribution.
+
+        Samples more points near the surface (point cloud) and fewer far away.
+        The density follows: density ∝ 1 / (distance_to_surface ^ falloff)
+        """
+        samples = []
+        center = np.array(constraint.center)
+        half = np.array(constraint.half_extents)
+        falloff = request.inverse_square_falloff
+
+        # Generate candidate points uniformly in the box
+        # Then accept/reject based on inverse-square weighting
+        n_candidates = n_samples * 10  # Oversample for rejection
+
+        for _ in range(n_candidates):
+            if len(samples) >= n_samples:
+                break
+
+            # Random point in box
+            point = center + rng.uniform(-1, 1, 3) * half
+
+            # Compute distance to nearest surface point
+            dist_to_surface, _ = surface_tree.query(point, k=1)
+
+            # Inverse-square acceptance probability
+            # Normalize so that points at distance ~near_band have ~1.0 probability
+            min_dist = max(dist_to_surface, near_band * 0.1)  # Avoid division by zero
+            weight = (near_band / min_dist) ** falloff
+
+            # Accept with probability proportional to weight
+            if rng.random() < min(1.0, weight):
+                # Offset based on sign convention
+                offset = near_band if constraint.sign == SignConvention.EMPTY else -near_band
+                phi = offset
+
+                samples.append(
+                    TrainingSample(
+                        x=float(point[0]),
+                        y=float(point[1]),
+                        z=float(point[2]),
+                        phi=phi,
+                        nx=0.0,
+                        ny=0.0,
+                        nz=0.0,
+                        weight=constraint.weight,
+                        source=f"box_{constraint.sign.value}_inv_sq",
+                        is_surface=False,
+                        is_free=constraint.sign == SignConvention.EMPTY,
+                    )
+                )
 
         return samples
 

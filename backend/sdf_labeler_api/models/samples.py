@@ -1,21 +1,61 @@
 # ABOUTME: Training sample related Pydantic models
 # ABOUTME: Defines sample generation requests and results
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+class SamplingStrategy(str, Enum):
+    """Sampling strategy for generating training samples from constraints."""
+
+    CONSTANT = "constant"  # Fixed samples per constraint
+    DENSITY = "density"  # Samples proportional to constraint volume
+    INVERSE_SQUARE = "inverse_square"  # More samples near surface, fewer far away
 
 
 class SampleGenerationRequest(BaseModel):
     """Request to generate training samples from constraints."""
 
     total_samples: int = Field(default=10000, ge=100, le=1000000)
+
+    # Sampling strategy
+    strategy: SamplingStrategy = Field(
+        default=SamplingStrategy.CONSTANT,
+        description="Sampling strategy: constant (fixed per constraint), density (proportional to volume), inverse_square (more near surface)",
+    )
+
+    # CONSTANT strategy parameters
     samples_per_primitive: int = Field(
         default=100,
         ge=10,
         le=10000,
-        description="Number of samples to generate per primitive constraint (box, sphere, cylinder, halfspace)",
+        description="[constant] Number of samples per primitive constraint",
     )
+
+    # DENSITY strategy parameters
+    samples_per_cubic_meter: float = Field(
+        default=10000.0,
+        ge=100.0,
+        le=1000000.0,
+        description="[density] Sample density per cubic meter of constraint volume",
+    )
+
+    # INVERSE_SQUARE strategy parameters
+    inverse_square_base_samples: int = Field(
+        default=100,
+        ge=10,
+        le=10000,
+        description="[inverse_square] Base samples at surface, falling off with distance²",
+    )
+    inverse_square_falloff: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=4.0,
+        description="[inverse_square] Falloff exponent (higher = faster falloff)",
+    )
+
     include_surface: bool = Field(default=True, description="Include surface anchor points")
     far_direction: Literal["outward", "inward", "bidirectional"] = Field(
         default="bidirectional", description="Direction for far-field sampling"

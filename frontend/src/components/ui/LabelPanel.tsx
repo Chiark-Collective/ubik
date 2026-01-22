@@ -790,15 +790,25 @@ interface ExportSectionProps {
   constraintCount: number;
 }
 
+type SamplingStrategy = "constant" | "density" | "inverse_square";
+
 function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
   const [sampleCount, setSampleCount] = useState<number | null>(null);
+  const [strategy, setStrategy] = useState<SamplingStrategy>("constant");
   const [samplesPerPrimitive, setSamplesPerPrimitive] = useState(100);
+  const [samplesPerCubicMeter, setSamplesPerCubicMeter] = useState(10000);
+  const [inverseSquareBaseSamples, setInverseSquareBaseSamples] = useState(100);
+  const [inverseSquareFalloff, setInverseSquareFalloff] = useState(2.0);
 
   const generateMutation = useMutation({
     mutationFn: () =>
       generateSamples(projectId, {
         total_samples: 10000,
+        strategy,
         samples_per_primitive: samplesPerPrimitive,
+        samples_per_cubic_meter: samplesPerCubicMeter,
+        inverse_square_base_samples: inverseSquareBaseSamples,
+        inverse_square_falloff: inverseSquareFalloff,
         include_surface: true,
         far_direction: "bidirectional",
       }),
@@ -835,26 +845,107 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
 
   return (
     <div className="p-4 border-t border-gray-800 space-y-3">
-      {/* Samples per primitive setting */}
-      <div className="flex items-center justify-between text-sm">
-        <label htmlFor="samples-per-primitive" className="text-gray-400">
-          Samples per primitive
-        </label>
-        <input
-          id="samples-per-primitive"
-          type="number"
-          min={10}
-          max={10000}
-          step={10}
-          value={samplesPerPrimitive}
-          onChange={(e) =>
-            setSamplesPerPrimitive(
-              Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
-            )
-          }
-          className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
-        />
+      {/* Sampling strategy selection */}
+      <div className="space-y-2">
+        <label className="text-sm text-gray-400">Sampling Strategy</label>
+        <select
+          value={strategy}
+          onChange={(e) => setStrategy(e.target.value as SamplingStrategy)}
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white focus:border-blue-500 focus:outline-none text-sm"
+        >
+          <option value="constant">Constant (fixed per constraint)</option>
+          <option value="density">Density (proportional to volume)</option>
+          <option value="inverse_square">Inverse Square (more near surface)</option>
+        </select>
       </div>
+
+      {/* Strategy-specific parameters */}
+      {strategy === "constant" && (
+        <div className="flex items-center justify-between text-sm">
+          <label htmlFor="samples-per-primitive" className="text-gray-400">
+            Samples per primitive
+          </label>
+          <input
+            id="samples-per-primitive"
+            type="number"
+            min={10}
+            max={10000}
+            step={10}
+            value={samplesPerPrimitive}
+            onChange={(e) =>
+              setSamplesPerPrimitive(
+                Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
+              )
+            }
+            className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+      )}
+
+      {strategy === "density" && (
+        <div className="flex items-center justify-between text-sm">
+          <label htmlFor="samples-per-m3" className="text-gray-400">
+            Samples per m³
+          </label>
+          <input
+            id="samples-per-m3"
+            type="number"
+            min={100}
+            max={1000000}
+            step={1000}
+            value={samplesPerCubicMeter}
+            onChange={(e) =>
+              setSamplesPerCubicMeter(
+                Math.max(100, Math.min(1000000, parseInt(e.target.value) || 10000)),
+              )
+            }
+            className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+      )}
+
+      {strategy === "inverse_square" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <label htmlFor="inv-sq-base" className="text-gray-400">
+              Base samples
+            </label>
+            <input
+              id="inv-sq-base"
+              type="number"
+              min={10}
+              max={10000}
+              step={10}
+              value={inverseSquareBaseSamples}
+              onChange={(e) =>
+                setInverseSquareBaseSamples(
+                  Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
+                )
+              }
+              className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <label htmlFor="inv-sq-falloff" className="text-gray-400">
+              Falloff exponent
+            </label>
+            <input
+              id="inv-sq-falloff"
+              type="number"
+              min={0.5}
+              max={4.0}
+              step={0.1}
+              value={inverseSquareFalloff}
+              onChange={(e) =>
+                setInverseSquareFalloff(
+                  Math.max(0.5, Math.min(4.0, parseFloat(e.target.value) || 2.0)),
+                )
+              }
+              className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Generate button */}
       <LoadingButton
