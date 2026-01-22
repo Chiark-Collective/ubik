@@ -163,12 +163,6 @@ class AutoAnalysisService:
         # Remove redundant contained boxes
         all_constraints = self._simplify_constraints(all_constraints, options.overlap_threshold)
 
-        # Filter out constraints in void regions (far from point cloud)
-        if options.void_filter_enabled:
-            all_constraints = self._filter_void_constraints(
-                all_constraints, xyz, options.void_max_distance
-            )
-
         # Compute summary
         summary = self._compute_summary(all_constraints, len(algorithm_stats))
 
@@ -1198,108 +1192,6 @@ class AutoAnalysisService:
                         remove_indices.add(idx_b)
 
         return [c for i, c in enumerate(constraints) if i not in remove_indices]
-
-    def _filter_void_constraints(
-        self,
-        constraints: list[GeneratedConstraint],
-        xyz: np.ndarray,
-        max_distance: float,
-    ) -> list[GeneratedConstraint]:
-        """Filter out constraints that are too far from point cloud data.
-
-        Removes constraints in void regions where there's no surface data,
-        which would create misleading training signals.
-
-        Args:
-            constraints: List of generated constraints.
-            xyz: Point cloud positions (N, 3).
-            max_distance: Maximum distance from any point to keep a constraint.
-
-        Returns:
-            Filtered list with void constraints removed.
-        """
-        if len(constraints) == 0 or len(xyz) == 0:
-            return constraints
-
-        # Build KD-tree for efficient nearest neighbor queries
-        tree = KDTree(xyz)
-
-        filtered: list[GeneratedConstraint] = []
-        for constraint in constraints:
-            c = constraint.constraint
-            c_type = c.get("type")
-
-            # Get representative point(s) for this constraint
-            query_points, min_required = self._get_constraint_query_points(c, c_type)
-
-            # Count how many query points are within max_distance of point cloud
-            near_count = 0
-            for point in query_points:
-                dist, _ = tree.query(point, k=1)
-                if dist <= max_distance:
-                    near_count += 1
-
-            # Keep if we have enough points near the surface
-            if near_count >= min_required:
-                filtered.append(constraint)
-
-        return filtered
-
-    def _get_constraint_query_points(
-        self, constraint: dict, c_type: str | None
-    ) -> tuple[list[np.ndarray], int]:
-        """Get representative points for proximity checking.
-
-        For boxes, returns center and all 8 corners, requiring at least 2
-        points to be near surface data. This filters boxes where only one
-        corner touches (void boxes) while keeping boxes genuinely near surface.
-
-        For sample points, returns the position.
-        For other types, returns center if available.
-
-        Returns:
-            Tuple of (list of query points, minimum required near surface)
-        """
-        points: list[np.ndarray] = []
-        min_required = 1  # Default: at least 1 point must be near
-
-        if c_type == "box":
-            center = np.array(constraint.get("center", [0, 0, 0]))
-            half = np.array(constraint.get("half_extents", [0, 0, 0]))
-            points.append(center)
-            # Add all 8 corners
-            for dx in [-1, 1]:
-                for dy in [-1, 1]:
-                    for dz in [-1, 1]:
-                        corner = center + np.array([dx, dy, dz]) * half
-                        points.append(corner)
-            # Require at least 2 of 9 points (center + 8 corners) to be near surface
-            # This filters void boxes with only one corner touching
-            min_required = 2
-
-        elif c_type == "sample_point":
-            pos = constraint.get("position")
-            if pos:
-                points.append(np.array(pos))
-
-        elif c_type == "sphere":
-            center = constraint.get("center")
-            if center:
-                points.append(np.array(center))
-
-        elif c_type == "pocket":
-            centroid = constraint.get("centroid")
-            if centroid:
-                points.append(np.array(centroid))
-
-        else:
-            # Fallback: try common position fields
-            for field in ["center", "position", "point", "centroid"]:
-                if field in constraint:
-                    points.append(np.array(constraint[field]))
-                    break
-
-        return points, min_required
 
     def _save_results(self, project_id: str, result: AutoAnalysisResult) -> None:
         """Save analysis results to cache."""

@@ -57,10 +57,6 @@ export interface AutoAnalysisOptions {
   idw_sample_count: number; // 100-10000, default 1000
   idw_max_distance: number; // 0.05-2.0, default 0.5
   idw_power: number; // 0.5-4.0, default 2.0
-
-  // Void filtering - removes constraints far from point cloud
-  void_filter_enabled: boolean; // default true
-  void_max_distance: number; // 0.05-2.0, default 0.3
 }
 
 export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
@@ -72,8 +68,6 @@ export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
   idw_sample_count: 1000,
   idw_max_distance: 0.5,
   idw_power: 2.0,
-  void_filter_enabled: true,
-  void_max_distance: 0.3,
 };
 
 interface AutoAnalysisState {

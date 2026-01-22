@@ -363,39 +363,6 @@ export function AutoMode({
               onChange={(v) => onSetOptions({ idw_power: v })}
             />
           </div>
-
-          {/* Void Filtering */}
-          <div className="space-y-2 pt-2 border-t border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500 text-xs">Void Filtering</span>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={options.void_filter_enabled}
-                  onChange={(e) =>
-                    onSetOptions({ void_filter_enabled: e.target.checked })
-                  }
-                  className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
-                />
-                <span className="text-xs text-gray-400">Enabled</span>
-              </label>
-            </div>
-            {options.void_filter_enabled && (
-              <OptionsSlider
-                label="Max Distance"
-                value={options.void_max_distance}
-                min={0.05}
-                max={2.0}
-                step={0.05}
-                defaultValue={DEFAULT_OPTIONS.void_max_distance}
-                onChange={(v) => onSetOptions({ void_max_distance: v })}
-                unit="m"
-              />
-            )}
-            <p className="text-xs text-gray-600">
-              Removes constraints far from point cloud data
-            </p>
-          </div>
         </div>
       )}
 
