@@ -716,15 +716,18 @@ class AutoAnalysisService:
     def _generate_flood_fill_constraints(
         self, xyz: np.ndarray, _normals: np.ndarray | None, options: AutoAnalysisOptions
     ) -> list[GeneratedConstraint]:
-        """Generate EMPTY box constraints using ray propagation with bouncing.
+        """Generate EMPTY constraints using ray propagation with bouncing.
 
         Uses the ray model:
         1. EMPTY rays shine down from +Z (sky)
         2. Rays bounce to fill occluded areas (trenches, overhangs)
-        3. Per-Z-slice greedy meshing creates boxes that follow the EMPTY shape
+        3. Output depends on flood_fill_output option:
+           - 'boxes': axis-aligned boxes via greedy meshing
+           - 'samples': point samples uniformly distributed in empty voxels
+           - 'both': both boxes and samples
 
-        This correctly handles trenches: rays enter from above and bounce
-        to fill the interior, creating EMPTY boxes that extend into the trench.
+        Sample-based output avoids axis-alignment bias and works better
+        with diagonal/complex geometry.
         """
         constraints: list[GeneratedConstraint] = []
 
@@ -742,6 +745,105 @@ class AutoAnalysisService:
         empty_mask, _ = self._ray_propagation_with_bounces(
             occupied, grid_shape, inside_hull, options.cone_angle
         )
+
+        output_mode = options.flood_fill_output.lower()
+
+        # Generate sample points if requested
+        if output_mode in ("samples", "both"):
+            sample_constraints = self._generate_samples_from_mask(
+                empty_mask,
+                bbox_min,
+                voxel_size,
+                xyz,
+                options.flood_fill_sample_count,
+                SignConvention.EMPTY,
+                AlgorithmType.FLOOD_FILL,
+            )
+            constraints.extend(sample_constraints)
+
+        # Generate boxes if requested
+        if output_mode in ("boxes", "both"):
+            box_constraints = self._generate_boxes_from_mask(
+                empty_mask, bbox_min, voxel_size, nz, options, SignConvention.EMPTY, AlgorithmType.FLOOD_FILL
+            )
+            constraints.extend(box_constraints)
+
+        return constraints
+
+    def _generate_samples_from_mask(
+        self,
+        mask: np.ndarray,
+        bbox_min: np.ndarray,
+        voxel_size: float,
+        xyz: np.ndarray,
+        n_samples: int,
+        sign: SignConvention,
+        algorithm: AlgorithmType,
+    ) -> list[GeneratedConstraint]:
+        """Generate sample_point constraints from a voxel mask.
+
+        Uniformly samples points within marked voxels, computing distance
+        to the nearest surface point for each sample.
+        """
+        from scipy.spatial import KDTree
+
+        constraints: list[GeneratedConstraint] = []
+
+        # Get indices of marked voxels
+        marked_indices = np.argwhere(mask)
+        if len(marked_indices) == 0:
+            return constraints
+
+        # Build KD-tree for distance computation
+        tree = KDTree(xyz)
+
+        # Sample voxels (with replacement if needed)
+        rng = np.random.default_rng(42)
+        if len(marked_indices) >= n_samples:
+            sample_indices = rng.choice(len(marked_indices), size=n_samples, replace=False)
+        else:
+            sample_indices = rng.choice(len(marked_indices), size=n_samples, replace=True)
+
+        for idx in sample_indices:
+            voxel_ijk = marked_indices[idx]
+            # Random point within the voxel
+            offset = rng.uniform(0, 1, 3)
+            world_pos = bbox_min + (voxel_ijk + offset) * voxel_size
+
+            # Compute distance to nearest surface point
+            dist, _ = tree.query(world_pos, k=1)
+
+            # Sign the distance based on constraint type
+            signed_dist = float(dist) if sign == SignConvention.EMPTY else -float(dist)
+
+            constraints.append(
+                GeneratedConstraint(
+                    constraint={
+                        "type": "sample_point",
+                        "sign": sign.value,
+                        "position": tuple(world_pos.tolist()),
+                        "distance": signed_dist,
+                    },
+                    algorithm=algorithm,
+                    confidence=0.8,
+                    description=f"Voxel sample at d={signed_dist:.3f}m",
+                )
+            )
+
+        return constraints
+
+    def _generate_boxes_from_mask(
+        self,
+        empty_mask: np.ndarray,
+        bbox_min: np.ndarray,
+        voxel_size: float,
+        nz: int,
+        options: AutoAnalysisOptions,
+        sign: SignConvention,
+        algorithm: AlgorithmType,
+    ) -> list[GeneratedConstraint]:
+        """Generate axis-aligned box constraints from a voxel mask using greedy meshing."""
+        constraints: list[GeneratedConstraint] = []
 
         # Decompose each Z-slice into rectangles using greedy meshing
         all_boxes: list[tuple[int, int, int, int, int, int]] = []
@@ -815,7 +917,7 @@ class AutoAnalysisService:
 
             box_constraint = {
                 "type": "box",
-                "sign": SignConvention.EMPTY.value,
+                "sign": sign.value,
                 "center": tuple(center.tolist()),
                 "half_extents": tuple(half_extents.tolist()),
             }
@@ -825,7 +927,7 @@ class AutoAnalysisService:
             constraints.append(
                 GeneratedConstraint(
                     constraint=box_constraint,
-                    algorithm=AlgorithmType.FLOOD_FILL,
+                    algorithm=algorithm,
                     confidence=0.85,
                     description=f"Sky-reachable region ({n_voxels} voxels, {volume:.2f}m³)",
                 )

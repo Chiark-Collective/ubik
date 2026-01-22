@@ -251,7 +251,8 @@ class TestFloodFillConstraints:
         assert len(constraints) > 0
 
         for c in constraints:
-            assert c.constraint["type"] == "box"
+            # Default output is samples, but could also be boxes
+            assert c.constraint["type"] in ("box", "sample_point")
             assert c.constraint["sign"] == "empty"
             assert c.algorithm == AlgorithmType.FLOOD_FILL
 

@@ -402,6 +402,36 @@ export function AutoMode({
         )}
       </div>
 
+      {/* Flood Fill Output Mode */}
+      <div className="space-y-2 border-t border-gray-700 pt-3">
+        <div className="text-xs text-gray-400 font-medium">Flood Fill Output</div>
+        <select
+          value={options.flood_fill_output}
+          onChange={(e) =>
+            onSetOptions({
+              flood_fill_output: e.target.value as "boxes" | "samples" | "both",
+            })
+          }
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:border-blue-500 focus:outline-none"
+        >
+          <option value="samples">Samples (rotation-invariant)</option>
+          <option value="boxes">Boxes (axis-aligned)</option>
+          <option value="both">Both</option>
+        </select>
+        {(options.flood_fill_output === "samples" ||
+          options.flood_fill_output === "both") && (
+          <OptionsSlider
+            label="Sample Count"
+            value={options.flood_fill_sample_count}
+            min={50}
+            max={5000}
+            step={50}
+            defaultValue={DEFAULT_OPTIONS.flood_fill_sample_count}
+            onChange={(v) => onSetOptions({ flood_fill_sample_count: v })}
+          />
+        )}
+      </div>
+
       {/* Algorithm selection */}
       <div className="space-y-2">
         <div className="text-xs text-gray-400 font-medium">Algorithms to run:</div>
