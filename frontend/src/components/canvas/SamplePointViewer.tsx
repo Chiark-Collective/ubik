@@ -21,7 +21,7 @@ const COLORS = {
 export function SamplePointViewer({
   constraints,
   visible = true,
-  pointSize = 0.02,
+  pointSize = 0.08,  // Increased from 0.02 for better visibility in large scenes
 }: SamplePointViewerProps) {
   // Debug: log constraints received
   console.log(`[SamplePointViewer] Received ${constraints.length} constraints, visible=${visible}`);
@@ -39,6 +39,10 @@ export function SamplePointViewer({
       }
     }
 
+    console.log(`[SamplePointViewer] Computed positions - solid: ${solid.length / 3}, empty: ${empty.length / 3}`);
+    if (empty.length > 0) {
+      console.log(`[SamplePointViewer] First empty point: [${empty[0]}, ${empty[1]}, ${empty[2]}]`);
+    }
     return {
       solidPositions: new Float32Array(solid),
       emptyPositions: new Float32Array(empty),
