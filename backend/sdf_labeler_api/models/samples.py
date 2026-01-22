@@ -56,9 +56,7 @@ class SamplePreview(BaseModel):
     surface_anchor_count: int
     near_band_count: int
     far_field_count: int
-    constraint_sample_count: int = Field(
-        default=0, description="Samples from user constraints"
-    )
+    constraint_sample_count: int = Field(default=0, description="Samples from user constraints")
     total_count: int
 
     # Subset of samples for visualization

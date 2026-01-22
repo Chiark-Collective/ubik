@@ -1,39 +1,54 @@
 // ABOUTME: Main application component
 // ABOUTME: Combines 3D viewport with UI panels for SDF labeling
 
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Stats, GizmoHelper, GizmoViewport } from '@react-three/drei'
-import * as THREE from 'three'
-import { Leva } from 'leva'
-import { Suspense } from 'react'
+import { Canvas } from "@react-three/fiber";
+import {
+  OrbitControls,
+  Stats,
+  GizmoHelper,
+  GizmoViewport,
+} from "@react-three/drei";
+import * as THREE from "three";
+import { Leva } from "leva";
+import { Suspense } from "react";
 
-import { ToastProvider } from './components/ui/ToastProvider'
-import { ErrorBoundary } from './components/ui/ErrorBoundary'
-import { PointCloudViewer } from './components/canvas/PointCloudViewer'
-import { SelectionVolume } from './components/canvas/SelectionVolume'
-import { PrimitivePlacer } from './components/canvas/PrimitivePlacer'
-import { BrushPainter } from './components/canvas/BrushPainter'
-import { RayScribblePainter } from './components/canvas/RayScribblePainter'
-import { PocketDetector } from './components/canvas/PocketDetector'
-import { SeedPlacer } from './components/canvas/SeedPlacer'
-import { SampleViewer } from './components/canvas/SampleViewer'
-import { useBrushStore } from './stores/brushStore'
-import { useSeedStore } from './stores/seedStore'
-import { Toolbar } from './components/ui/Toolbar'
-import { ProjectPanel } from './components/ui/ProjectPanel'
-import { LabelPanel } from './components/ui/LabelPanel'
-import { StatusBar } from './components/ui/StatusBar'
-import { PrimitiveOverlay } from './components/ui/PrimitiveOverlay'
-import { useProjectStore } from './stores/projectStore'
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { ToastProvider } from "./components/ui/ToastProvider";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { PointCloudViewer } from "./components/canvas/PointCloudViewer";
+import { SelectionVolume } from "./components/canvas/SelectionVolume";
+import { PrimitivePlacer } from "./components/canvas/PrimitivePlacer";
+import { BrushPainter } from "./components/canvas/BrushPainter";
+import { RayScribblePainter } from "./components/canvas/RayScribblePainter";
+import { PocketDetector } from "./components/canvas/PocketDetector";
+import { SeedPlacer } from "./components/canvas/SeedPlacer";
+import { SampleViewer } from "./components/canvas/SampleViewer";
+import { SamplePointViewer } from "./components/canvas/SamplePointViewer";
+import { useBrushStore } from "./stores/brushStore";
+import { useLabelStore, type SamplePointConstraint } from "./stores/labelStore";
+import { useSeedStore } from "./stores/seedStore";
+import { Toolbar } from "./components/ui/Toolbar";
+import { ProjectPanel } from "./components/ui/ProjectPanel";
+import { LabelPanel } from "./components/ui/LabelPanel";
+import { StatusBar } from "./components/ui/StatusBar";
+import { PrimitiveOverlay } from "./components/ui/PrimitiveOverlay";
+import { useProjectStore } from "./stores/projectStore";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 function Scene() {
-  const projectId = useProjectStore((s) => s.currentProjectId)
-  const mode = useProjectStore((s) => s.mode)
-  const depthAware = useBrushStore((s) => s.depthAware)
-  const seeds = useSeedStore((s) => s.seeds)
-  const addSeed = useSeedStore((s) => s.addSeed)
-  const propagationRadius = useSeedStore((s) => s.propagationRadius)
+  const projectId = useProjectStore((s) => s.currentProjectId);
+  const mode = useProjectStore((s) => s.mode);
+  const depthAware = useBrushStore((s) => s.depthAware);
+  const seeds = useSeedStore((s) => s.seeds);
+  const addSeed = useSeedStore((s) => s.addSeed);
+  const propagationRadius = useSeedStore((s) => s.propagationRadius);
+  const constraints = useLabelStore((s) =>
+    projectId ? s.constraintsByProject[projectId] || [] : []
+  );
+
+  // Filter sample_point constraints for visualization
+  const samplePointConstraints = constraints.filter(
+    (c): c is SamplePointConstraint => c.type === "sample_point"
+  );
 
   // Navigation always available via right-click (rotate) and middle-click (pan)
   // Left-click is reserved for tool interactions
@@ -47,11 +62,19 @@ function Scene() {
       {/* 3D grid reference - 10m cube with 1m cells */}
       <group>
         {/* XZ plane (floor) */}
-        <gridHelper args={[10, 10, '#444444', '#333333']} />
+        <gridHelper args={[10, 10, "#444444", "#333333"]} />
         {/* XY plane (back wall) */}
-        <gridHelper args={[10, 10, '#444444', '#333333']} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -5]} />
+        <gridHelper
+          args={[10, 10, "#444444", "#333333"]}
+          rotation={[Math.PI / 2, 0, 0]}
+          position={[0, 0, -5]}
+        />
         {/* YZ plane (side wall) */}
-        <gridHelper args={[10, 10, '#444444', '#333333']} rotation={[0, 0, Math.PI / 2]} position={[-5, 0, 0]} />
+        <gridHelper
+          args={[10, 10, "#444444", "#333333"]}
+          rotation={[0, 0, Math.PI / 2]}
+          position={[-5, 0, 0]}
+        />
       </group>
 
       {/* Point cloud viewer */}
@@ -69,10 +92,7 @@ function Scene() {
 
       {/* Brush painter (when in brush mode) */}
       {projectId && (
-        <BrushPainter
-          projectId={projectId}
-          depthAware={depthAware}
-        />
+        <BrushPainter projectId={projectId} depthAware={depthAware} />
       )}
 
       {/* Ray scribble painter (when in ray_scribble mode) */}
@@ -94,12 +114,20 @@ function Scene() {
       {/* Sample visualization */}
       {projectId && <SampleViewer projectId={projectId} />}
 
+      {/* Sample point constraint visualization (IDW normal samples) */}
+      {samplePointConstraints.length > 0 && (
+        <SamplePointViewer constraints={samplePointConstraints} />
+      )}
+
       {/* Camera controls - always enabled, right-click to rotate, middle-click to pan */}
       {/* In Orbit mode, left-click also rotates for convenience */}
       <OrbitControls
         makeDefault
         mouseButtons={{
-          LEFT: mode === 'orbit' ? THREE.MOUSE.ROTATE : (undefined as unknown as THREE.MOUSE),
+          LEFT:
+            mode === "orbit"
+              ? THREE.MOUSE.ROTATE
+              : (undefined as unknown as THREE.MOUSE),
           MIDDLE: THREE.MOUSE.PAN,
           RIGHT: THREE.MOUSE.ROTATE,
         }}
@@ -107,18 +135,21 @@ function Scene() {
 
       {/* Gizmo helper */}
       <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
-        <GizmoViewport axisColors={['#f87171', '#4ade80', '#60a5fa']} labelColor="white" />
+        <GizmoViewport
+          axisColors={["#f87171", "#4ade80", "#60a5fa"]}
+          labelColor="white"
+        />
       </GizmoHelper>
 
       {/* Performance stats (dev only) - positioned via CSS in index.css */}
       {import.meta.env.DEV && <Stats className="stats-panel" />}
     </>
-  )
+  );
 }
 
 export default function App() {
   // Global keyboard shortcuts
-  useKeyboardShortcuts()
+  useKeyboardShortcuts();
 
   return (
     <ErrorBoundary>
@@ -139,23 +170,23 @@ export default function App() {
                 gl={{
                   antialias: true,
                   alpha: false,
-                  powerPreference: 'high-performance',
+                  powerPreference: "high-performance",
                   preserveDrawingBuffer: true,
                 }}
                 dpr={[1, 2]}
                 onCreated={({ gl }) => {
                   // Handle WebGL context loss
-                  const canvas = gl.domElement
-                  canvas.addEventListener('webglcontextlost', (e) => {
-                    e.preventDefault()
-                    console.error('WebGL context lost')
-                  })
-                  canvas.addEventListener('webglcontextrestored', () => {
-                    console.log('WebGL context restored')
-                  })
+                  const canvas = gl.domElement;
+                  canvas.addEventListener("webglcontextlost", (e) => {
+                    e.preventDefault();
+                    console.error("WebGL context lost");
+                  });
+                  canvas.addEventListener("webglcontextrestored", () => {
+                    console.log("WebGL context restored");
+                  });
                 }}
               >
-                <color attach="background" args={['#0f0f0f']} />
+                <color attach="background" args={["#0f0f0f"]} />
                 <Scene />
               </Canvas>
 
@@ -171,12 +202,12 @@ export default function App() {
               <Leva
                 collapsed
                 flat
-                titleBar={{ title: 'Debug Controls' }}
+                titleBar={{ title: "Debug Controls" }}
                 theme={{
                   colors: {
-                    elevation1: '#1f1f1f',
-                    elevation2: '#2a2a2a',
-                    elevation3: '#3a3a3a',
+                    elevation1: "#1f1f1f",
+                    elevation2: "#2a2a2a",
+                    elevation3: "#3a3a3a",
                   },
                 }}
               />
@@ -191,5 +222,5 @@ export default function App() {
         </div>
       </ToastProvider>
     </ErrorBoundary>
-  )
+  );
 }

@@ -59,8 +59,17 @@ except ImportError:
         pass
 
     SDF_COLUMNS = [
-        "x", "y", "z", "phi", "nx", "ny", "nz",
-        "weight", "source", "is_surface", "is_free",
+        "x",
+        "y",
+        "z",
+        "phi",
+        "nx",
+        "ny",
+        "nz",
+        "weight",
+        "source",
+        "is_surface",
+        "is_free",
     ]
 
 

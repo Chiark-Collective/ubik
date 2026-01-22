@@ -110,15 +110,11 @@ class PocketService:
         else:
             # Create a binary mask and dilate
             occupied_mask = np.zeros_like(grid, dtype=bool)
-            occupied_mask[
-                voxel_indices[:, 0], voxel_indices[:, 1], voxel_indices[:, 2]
-            ] = True
+            occupied_mask[voxel_indices[:, 0], voxel_indices[:, 1], voxel_indices[:, 2]] = True
 
             # Dilate the occupied region
             struct = ndimage.generate_binary_structure(3, 1)  # 6-connectivity
-            dilated = ndimage.binary_dilation(
-                occupied_mask, structure=struct, iterations=dilation
-            )
+            dilated = ndimage.binary_dilation(occupied_mask, structure=struct, iterations=dilation)
             grid[dilated] = VoxelState.OCCUPIED
 
         return grid
@@ -146,7 +142,10 @@ class PocketService:
         # Flood fill using binary_dilation with constraint
         struct = ndimage.generate_binary_structure(3, 1)  # 6-connectivity
         outside = ndimage.binary_dilation(
-            seed, mask=traversable, iterations=-1, structure=struct  # Until no change
+            seed,
+            mask=traversable,
+            iterations=-1,
+            structure=struct,  # Until no change
         )
 
         # Mark outside voxels
@@ -316,9 +315,7 @@ class PocketService:
 
         return PocketAnalysis.model_validate(data)
 
-    def get_pocket_voxels(
-        self, project_id: str, pocket_id: int
-    ) -> np.ndarray | None:
+    def get_pocket_voxels(self, project_id: str, pocket_id: int) -> np.ndarray | None:
         """Get voxel world coordinates for a specific pocket.
 
         Returns:

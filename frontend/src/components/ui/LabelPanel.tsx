@@ -1,85 +1,109 @@
 // ABOUTME: Right sidebar panel for label selection and constraint list
 // ABOUTME: Shows active label type and list of created constraints
 
-import { useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import * as ToggleGroup from '@radix-ui/react-toggle-group'
-import { TrashIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import * as Dialog from "@radix-ui/react-dialog";
+import {
+  TrashIcon,
+  DownloadIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@radix-ui/react-icons";
 
-import { useProjectStore, type LabelType } from '../../stores/projectStore'
-import { useLabelStore, type Constraint } from '../../stores/labelStore'
-import { useSliceStore } from '../../stores/sliceStore'
-import { useBrushStore } from '../../stores/brushStore'
-import { useSeedStore } from '../../stores/seedStore'
-import { useRayScribbleStore } from '../../stores/rayScribbleStore'
-import { useLocalSpacing } from '../../hooks/useLocalSpacing'
-import { usePocketStore } from '../../stores/pocketStore'
-import { useConstraintSync } from '../../hooks/useConstraintSync'
-import { toast } from '../../stores/toastStore'
-import { LoadingButton } from './Spinner'
-import { PrimitiveMode } from '../modes/PrimitiveMode'
-import { SliceMode } from '../modes/SliceMode'
-import { BrushMode } from '../modes/BrushMode'
-import { SeedMode } from '../modes/SeedMode'
-import { MLImportMode } from '../modes/MLImportMode'
-import { RayScribbleMode } from '../modes/RayScribbleMode'
-import { ClickPocketMode } from '../modes/ClickPocketMode'
-import { generateSamples, exportParquet } from '../../services/api'
+import { useProjectStore, type LabelType } from "../../stores/projectStore";
+import { useLabelStore, type Constraint } from "../../stores/labelStore";
+import { useSliceStore } from "../../stores/sliceStore";
+import { useBrushStore } from "../../stores/brushStore";
+import { useSeedStore } from "../../stores/seedStore";
+import { useRayScribbleStore } from "../../stores/rayScribbleStore";
+import { useSprayEffectStore } from "../../stores/sprayEffectStore";
+import { useLocalSpacing } from "../../hooks/useLocalSpacing";
+import { usePocketStore } from "../../stores/pocketStore";
+import { useAutoAnalysisStore } from "../../stores/autoAnalysisStore";
+import { useConstraintSync } from "../../hooks/useConstraintSync";
+import { toast } from "../../stores/toastStore";
+import { LoadingButton } from "./Spinner";
+import { PrimitiveMode } from "../modes/PrimitiveMode";
+import { SliceMode } from "../modes/SliceMode";
+import { BrushMode } from "../modes/BrushMode";
+import { SeedMode } from "../modes/SeedMode";
+import { MLImportMode } from "../modes/MLImportMode";
+import { RayScribbleMode } from "../modes/RayScribbleMode";
+import { ClickPocketMode } from "../modes/ClickPocketMode";
+import { AutoMode } from "../modes/AutoMode";
+import {
+  generateSamples,
+  exportParquet,
+  clearConstraints as clearConstraintsApi,
+  runAutoAnalysis,
+  applyAutoConstraints,
+} from "../../services/api";
 
-const labelOptions: { value: LabelType; label: string; description: string; color: string }[] = [
+const labelOptions: {
+  value: LabelType;
+  label: string;
+  description: string;
+  color: string;
+}[] = [
   {
-    value: 'solid',
-    label: 'Solid',
-    description: 'Inside the surface (material)',
-    color: 'bg-solid',
+    value: "solid",
+    label: "Solid",
+    description: "Inside the surface (material)",
+    color: "bg-solid",
   },
   {
-    value: 'empty',
-    label: 'Empty',
-    description: 'Outside the surface (air)',
-    color: 'bg-empty',
+    value: "empty",
+    label: "Empty",
+    description: "Outside the surface (air)",
+    color: "bg-empty",
   },
   {
-    value: 'surface',
-    label: 'Surface',
-    description: 'On the boundary (distance = 0)',
-    color: 'bg-surface',
+    value: "surface",
+    label: "Surface",
+    description: "On the boundary (distance = 0)",
+    color: "bg-surface",
   },
-]
+];
 
 // Wrapper for SliceMode with store integration
 function SliceModePanel({ projectId }: { projectId: string }) {
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const slicePlane = useProjectStore((s) => s.slicePlane)
-  const slicePosition = useProjectStore((s) => s.slicePosition)
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const slicePlane = useProjectStore((s) => s.slicePlane);
+  const slicePosition = useProjectStore((s) => s.slicePosition);
 
-  const tool = useSliceStore((s) => s.tool)
-  const setTool = useSliceStore((s) => s.setTool)
-  const brushSize = useSliceStore((s) => s.brushSize)
-  const setBrushSize = useSliceStore((s) => s.setBrushSize)
-  const selectedPointIndices = useSliceStore((s) => s.selectedPointIndices)
-  const clearSelectedPoints = useSliceStore((s) => s.clearSelectedPoints)
+  const tool = useSliceStore((s) => s.tool);
+  const setTool = useSliceStore((s) => s.setTool);
+  const brushSize = useSliceStore((s) => s.brushSize);
+  const setBrushSize = useSliceStore((s) => s.setBrushSize);
+  const selectedPointIndices = useSliceStore((s) => s.selectedPointIndices);
+  const clearSelectedPoints = useSliceStore((s) => s.clearSelectedPoints);
 
-  const addConstraint = useLabelStore((s) => s.addConstraint)
+  const addConstraint = useLabelStore((s) => s.addConstraint);
 
   const handleCreateConstraint = () => {
-    if (selectedPointIndices.size === 0) return
+    if (selectedPointIndices.size === 0) return;
 
-    const constraint: import('../../stores/labelStore').SliceSelectionConstraint = {
-      id: crypto.randomUUID(),
-      type: 'slice_selection',
-      sign: activeLabel,
-      weight: 1.0,
-      createdAt: Date.now(),
-      pointIndices: Array.from(selectedPointIndices),
-      slicePlane,
-      slicePosition,
-    }
+    const constraint: import("../../stores/labelStore").SliceSelectionConstraint =
+      {
+        id: crypto.randomUUID(),
+        type: "slice_selection",
+        sign: activeLabel,
+        weight: 1.0,
+        createdAt: Date.now(),
+        pointIndices: Array.from(selectedPointIndices),
+        slicePlane,
+        slicePosition,
+      };
 
-    addConstraint(projectId, constraint)
-    clearSelectedPoints()
-    toast.success('Constraint created', `${selectedPointIndices.size} points marked as ${activeLabel}`)
-  }
+    addConstraint(projectId, constraint);
+    clearSelectedPoints();
+    toast.success(
+      "Constraint created",
+      `${selectedPointIndices.size} points marked as ${activeLabel}`,
+    );
+  };
 
   return (
     <div className="border-b border-gray-800">
@@ -92,27 +116,27 @@ function SliceModePanel({ projectId }: { projectId: string }) {
         onCreateConstraint={handleCreateConstraint}
       />
     </div>
-  )
+  );
 }
 
 // Wrapper for BrushMode with store integration
 function BrushModePanel() {
-  const depthAware = useBrushStore((s) => s.depthAware)
-  const setDepthAware = useBrushStore((s) => s.setDepthAware)
+  const depthAware = useBrushStore((s) => s.depthAware);
+  const setDepthAware = useBrushStore((s) => s.setDepthAware);
 
   return (
     <div className="border-b border-gray-800">
       <BrushMode depthAware={depthAware} setDepthAware={setDepthAware} />
     </div>
-  )
+  );
 }
 
 // Wrapper for SeedMode with store integration
 function SeedModePanel({ projectId }: { projectId: string }) {
-  const seeds = useSeedStore((s) => s.seeds)
-  const addSeed = useSeedStore((s) => s.addSeed)
-  const removeSeed = useSeedStore((s) => s.removeSeed)
-  const clearSeeds = useSeedStore((s) => s.clearSeeds)
+  const seeds = useSeedStore((s) => s.seeds);
+  const addSeed = useSeedStore((s) => s.addSeed);
+  const removeSeed = useSeedStore((s) => s.removeSeed);
+  const clearSeeds = useSeedStore((s) => s.clearSeeds);
 
   return (
     <div className="border-b border-gray-800">
@@ -124,7 +148,7 @@ function SeedModePanel({ projectId }: { projectId: string }) {
         onClearSeeds={clearSeeds}
       />
     </div>
-  )
+  );
 }
 
 // Wrapper for MLImportMode
@@ -133,29 +157,44 @@ function MLImportModePanel({ projectId }: { projectId: string }) {
     <div className="border-b border-gray-800">
       <MLImportMode projectId={projectId} />
     </div>
-  )
+  );
 }
 
 // Wrapper for RayScribbleMode with store integration
 function RayScribbleModePanel() {
-  const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions)
+  const pointCloudPositions = useProjectStore((s) => s.pointCloudPositions);
 
-  const emptyBandWidth = useRayScribbleStore((s) => s.emptyBandWidth)
-  const setEmptyBandWidth = useRayScribbleStore((s) => s.setEmptyBandWidth)
-  const surfaceBandWidth = useRayScribbleStore((s) => s.surfaceBandWidth)
-  const setSurfaceBandWidth = useRayScribbleStore((s) => s.setSurfaceBandWidth)
-  const backBufferWidth = useRayScribbleStore((s) => s.backBufferWidth)
-  const setBackBufferWidth = useRayScribbleStore((s) => s.setBackBufferWidth)
-  const useAdaptiveBackBuffer = useRayScribbleStore((s) => s.useAdaptiveBackBuffer)
-  const setUseAdaptiveBackBuffer = useRayScribbleStore((s) => s.setUseAdaptiveBackBuffer)
-  const backBufferCoefficient = useRayScribbleStore((s) => s.backBufferCoefficient)
-  const setBackBufferCoefficient = useRayScribbleStore((s) => s.setBackBufferCoefficient)
-  const isScribbling = useRayScribbleStore((s) => s.isScribbling)
-  const strokes = useRayScribbleStore((s) => s.strokes)
-  const clearStrokes = useRayScribbleStore((s) => s.clearStrokes)
+  const emptyBandWidth = useRayScribbleStore((s) => s.emptyBandWidth);
+  const setEmptyBandWidth = useRayScribbleStore((s) => s.setEmptyBandWidth);
+  const surfaceBandWidth = useRayScribbleStore((s) => s.surfaceBandWidth);
+  const setSurfaceBandWidth = useRayScribbleStore((s) => s.setSurfaceBandWidth);
+  const backBufferWidth = useRayScribbleStore((s) => s.backBufferWidth);
+  const setBackBufferWidth = useRayScribbleStore((s) => s.setBackBufferWidth);
+  const useAdaptiveBackBuffer = useRayScribbleStore(
+    (s) => s.useAdaptiveBackBuffer,
+  );
+  const setUseAdaptiveBackBuffer = useRayScribbleStore(
+    (s) => s.setUseAdaptiveBackBuffer,
+  );
+  const backBufferCoefficient = useRayScribbleStore(
+    (s) => s.backBufferCoefficient,
+  );
+  const setBackBufferCoefficient = useRayScribbleStore(
+    (s) => s.setBackBufferCoefficient,
+  );
+  const isScribbling = useRayScribbleStore((s) => s.isScribbling);
+  const strokes = useRayScribbleStore((s) => s.strokes);
+  const clearStrokes = useRayScribbleStore((s) => s.clearStrokes);
+
+  // Spray effect settings
+  const handedness = useSprayEffectStore((s) => s.handedness);
+  const setHandedness = useSprayEffectStore((s) => s.setHandedness);
+  const particleDensity = useSprayEffectStore((s) => s.particleDensity);
+  const setParticleDensity = useSprayEffectStore((s) => s.setParticleDensity);
 
   // Local spacing computation for adaptive back buffer
-  const { isReady, isComputing, progress, globalMean } = useLocalSpacing(pointCloudPositions)
+  const { isReady, isComputing, progress, globalMean } =
+    useLocalSpacing(pointCloudPositions);
 
   return (
     <RayScribbleMode
@@ -173,21 +212,26 @@ function RayScribbleModePanel() {
       isScribbling={isScribbling}
       strokeCount={strokes.length}
       onClearStrokes={clearStrokes}
+      handedness={handedness}
+      setHandedness={setHandedness}
+      particleDensity={particleDensity}
+      setParticleDensity={setParticleDensity}
+      qualityTier="auto-detected"
     />
-  )
+  );
 }
 
 // Wrapper for ClickPocketMode with store integration
 function ClickPocketModePanel({ projectId }: { projectId: string }) {
-  const analysis = usePocketStore((s) => s.analysis)
-  const isAnalyzing = usePocketStore((s) => s.isAnalyzing)
-  const selectedPocketId = usePocketStore((s) => s.selectedPocketId)
-  const setSelectedPocketId = usePocketStore((s) => s.setSelectedPocketId)
-  const togglePocket = usePocketStore((s) => s.togglePocket)
-  const isPocketSolid = usePocketStore((s) => s.isPocketSolid)
-  const setIsAnalyzing = usePocketStore((s) => s.setIsAnalyzing)
-  const setAnalysis = usePocketStore((s) => s.setAnalysis)
-  const setAnalyzeError = usePocketStore((s) => s.setAnalyzeError)
+  const analysis = usePocketStore((s) => s.analysis);
+  const isAnalyzing = usePocketStore((s) => s.isAnalyzing);
+  const selectedPocketId = usePocketStore((s) => s.selectedPocketId);
+  const setSelectedPocketId = usePocketStore((s) => s.setSelectedPocketId);
+  const togglePocket = usePocketStore((s) => s.togglePocket);
+  const isPocketSolid = usePocketStore((s) => s.isPocketSolid);
+  const setIsAnalyzing = usePocketStore((s) => s.setIsAnalyzing);
+  const setAnalysis = usePocketStore((s) => s.setAnalysis);
+  const setAnalyzeError = usePocketStore((s) => s.setAnalyzeError);
 
   // Transform pockets with local toggle state
   const pockets = (analysis?.pockets ?? []).map((p) => ({
@@ -198,20 +242,20 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
     boundsHigh: p.boundsHigh,
     volumeEstimate: p.volumeEstimate,
     isToggledSolid: isPocketSolid(p.pocketId),
-  }))
+  }));
 
   const handleAnalyze = async () => {
-    setIsAnalyzing(true)
-    setAnalyzeError(null)
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/v1/projects/${projectId}/pockets/analyze`,
-        { method: 'POST' }
-      )
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/v1/projects/${projectId}/pockets/analyze`,
+        { method: "POST" },
+      );
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`)
+        throw new Error(`Analysis failed: ${response.statusText}`);
       }
-      const data = await response.json()
+      const data = await response.json();
       setAnalysis({
         gridMetadata: {
           resolution: data.grid_metadata.resolution,
@@ -223,34 +267,39 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
           outsideCount: data.grid_metadata.outside_count,
           pocketCount: data.grid_metadata.pocket_count,
         },
-        pockets: data.pockets.map((p: {
-          pocket_id: number
-          voxel_count: number
-          centroid: [number, number, number]
-          bounds_low: [number, number, number]
-          bounds_high: [number, number, number]
-          volume_estimate: number
-          is_toggled_solid: boolean
-        }) => ({
-          pocketId: p.pocket_id,
-          voxelCount: p.voxel_count,
-          centroid: p.centroid,
-          boundsLow: p.bounds_low,
-          boundsHigh: p.bounds_high,
-          volumeEstimate: p.volume_estimate,
-          isToggledSolid: p.is_toggled_solid,
-        })),
+        pockets: data.pockets.map(
+          (p: {
+            pocket_id: number;
+            voxel_count: number;
+            centroid: [number, number, number];
+            bounds_low: [number, number, number];
+            bounds_high: [number, number, number];
+            volume_estimate: number;
+            is_toggled_solid: boolean;
+          }) => ({
+            pocketId: p.pocket_id,
+            voxelCount: p.voxel_count,
+            centroid: p.centroid,
+            boundsLow: p.bounds_low,
+            boundsHigh: p.bounds_high,
+            volumeEstimate: p.volume_estimate,
+            isToggledSolid: p.is_toggled_solid,
+          }),
+        ),
         computedAt: data.computed_at,
-      })
-      toast.success('Pocket analysis complete', `Found ${data.pockets.length} pockets`)
+      });
+      toast.success(
+        "Pocket analysis complete",
+        `Found ${data.pockets.length} pockets`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      setAnalyzeError(message)
-      toast.error('Pocket analysis failed', message)
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setAnalyzeError(message);
+      toast.error("Pocket analysis failed", message);
     } finally {
-      setIsAnalyzing(false)
+      setIsAnalyzing(false);
     }
-  }
+  };
 
   return (
     <div className="border-b border-gray-800">
@@ -263,34 +312,173 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
         onSelectPocket={setSelectedPocketId}
       />
     </div>
-  )
+  );
+}
+
+// Wrapper for AutoMode with store integration
+function AutoModePanel({ projectId }: { projectId: string }) {
+  const result = useAutoAnalysisStore((s) => s.result);
+  const isAnalyzing = useAutoAnalysisStore((s) => s.isAnalyzing);
+  const isApplying = useAutoAnalysisStore((s) => s.isApplying);
+  const selectedIndices = useAutoAnalysisStore((s) => s.selectedIndices);
+  const options = useAutoAnalysisStore((s) => s.options);
+  const setResult = useAutoAnalysisStore((s) => s.setResult);
+  const setIsAnalyzing = useAutoAnalysisStore((s) => s.setIsAnalyzing);
+  const setIsApplying = useAutoAnalysisStore((s) => s.setIsApplying);
+  const setAnalyzeError = useAutoAnalysisStore((s) => s.setAnalyzeError);
+  const setApplyError = useAutoAnalysisStore((s) => s.setApplyError);
+  const setOptions = useAutoAnalysisStore((s) => s.setOptions);
+  const resetOptions = useAutoAnalysisStore((s) => s.resetOptions);
+  const toggleConstraint = useAutoAnalysisStore((s) => s.toggleConstraint);
+  const selectAll = useAutoAnalysisStore((s) => s.selectAll);
+  const deselectAll = useAutoAnalysisStore((s) => s.deselectAll);
+
+  const { refreshConstraints } = useConstraintSync(projectId);
+
+  const handleAnalyze = async (algorithms?: import("../../stores/autoAnalysisStore").AlgorithmType[]) => {
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const data = await runAutoAnalysis(projectId, {
+        algorithms,
+        recompute: true,
+        analysisOptions: options,
+      });
+      setResult({
+        analysisId: data.analysis_id,
+        computedAt: data.computed_at,
+        algorithmsRun: data.algorithms_run,
+        summary: {
+          totalConstraints: data.summary.total_constraints,
+          solidConstraints: data.summary.solid_constraints,
+          emptyConstraints: data.summary.empty_constraints,
+          algorithmsContributing: data.summary.algorithms_contributing,
+        },
+        algorithmStats: Object.fromEntries(
+          Object.entries(data.algorithm_stats).map(([k, v]) => [
+            k,
+            {
+              constraintsGenerated: v.constraints_generated,
+              coverageDescription: v.coverage_description,
+            },
+          ]),
+        ),
+        generatedConstraints: data.generated_constraints.map(
+          (gc: {
+            constraint: { type: string; sign: string; [key: string]: unknown };
+            algorithm: string;
+            confidence: number;
+            description: string;
+          }) => ({
+            constraint: {
+              ...gc.constraint,
+              sign: gc.constraint.sign as "solid" | "empty",
+            },
+            algorithm:
+              gc.algorithm as import("../../stores/autoAnalysisStore").AlgorithmType,
+            confidence: gc.confidence,
+            description: gc.description,
+          }),
+        ),
+      });
+      toast.success(
+        "Auto-analysis complete",
+        `Generated ${data.summary.total_constraints} constraints`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setAnalyzeError(message);
+      toast.error("Auto-analysis failed", message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (selectedIndices.size === 0) return;
+
+    setIsApplying(true);
+    setApplyError(null);
+    try {
+      const indices = Array.from(selectedIndices);
+      const data = await applyAutoConstraints(projectId, {
+        constraintIndices: indices,
+      });
+      toast.success(
+        "Constraints applied",
+        `Added ${data.constraints_added} constraints`,
+      );
+
+      // Force refresh constraints from backend (clears loaded state and refetches)
+      refreshConstraints();
+
+      // Clear selection after successful apply
+      deselectAll();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setApplyError(message);
+      toast.error("Apply failed", message);
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  return (
+    <div className="border-b border-gray-800">
+      <AutoMode
+        result={result}
+        isAnalyzing={isAnalyzing}
+        isApplying={isApplying}
+        selectedIndices={selectedIndices}
+        options={options}
+        onAnalyze={handleAnalyze}
+        onApply={handleApply}
+        onToggleConstraint={toggleConstraint}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+        onSetOptions={setOptions}
+        onResetOptions={resetOptions}
+      />
+    </div>
+  );
 }
 
 export function LabelPanel() {
-  const [collapsed, setCollapsed] = useState(false)
-  const activeLabel = useProjectStore((s) => s.activeLabel)
-  const setActiveLabel = useProjectStore((s) => s.setActiveLabel)
-  const mode = useProjectStore((s) => s.mode)
-  const currentProjectId = useProjectStore((s) => s.currentProjectId)
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Trigger canvas resize when panel collapses/expands
+  useEffect(() => {
+    // Small delay to let the DOM update first
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [collapsed]);
+
+  const activeLabel = useProjectStore((s) => s.activeLabel);
+  const setActiveLabel = useProjectStore((s) => s.setActiveLabel);
+  const mode = useProjectStore((s) => s.mode);
+  const currentProjectId = useProjectStore((s) => s.currentProjectId);
 
   const constraints = useLabelStore((s) =>
-    currentProjectId ? s.getConstraints(currentProjectId) : []
-  )
-  const removeConstraint = useLabelStore((s) => s.removeConstraint)
+    currentProjectId ? s.getConstraints(currentProjectId) : [],
+  );
+  const removeConstraint = useLabelStore((s) => s.removeConstraint);
 
   // Backend sync for constraints
-  const { deleteConstraint: syncDeleteConstraint } = useConstraintSync(currentProjectId)
+  const { deleteConstraint: syncDeleteConstraint } =
+    useConstraintSync(currentProjectId);
 
   // Group constraints by type
   const groupedConstraints = useMemo(() => {
-    const groups: Record<string, Constraint[]> = {}
+    const groups: Record<string, Constraint[]> = {};
     for (const c of constraints) {
-      const type = c.type
-      if (!groups[type]) groups[type] = []
-      groups[type].push(c)
+      const type = c.type;
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(c);
     }
-    return groups
-  }, [constraints])
+    return groups;
+  }, [constraints]);
 
   // Collapsed state - minimal view with just label buttons
   if (collapsed) {
@@ -314,7 +502,7 @@ export function LabelPanel() {
               className={`w-10 h-10 rounded-lg border transition-colors ${
                 activeLabel === value
                   ? `border-${value} ring-2 ring-${value}`
-                  : 'border-gray-700 hover:border-gray-600'
+                  : "border-gray-700 hover:border-gray-600"
               }`}
               title={value.charAt(0).toUpperCase() + value.slice(1)}
             >
@@ -330,7 +518,7 @@ export function LabelPanel() {
           </div>
         )}
       </div>
-    )
+    );
   }
 
   return (
@@ -360,9 +548,10 @@ export function LabelPanel() {
               aria-label={label}
               className={`
                 flex items-center gap-3 p-3 rounded-lg border transition-colors text-left
-                ${activeLabel === value
-                  ? `border-${value} bg-${value}/10 ring-2 ring-${value}`
-                  : 'border-gray-700 hover:border-gray-600'
+                ${
+                  activeLabel === value
+                    ? `border-${value} bg-${value}/10 ring-2 ring-${value}`
+                    : "border-gray-700 hover:border-gray-600"
                 }
               `}
             >
@@ -379,41 +568,49 @@ export function LabelPanel() {
       {/* Scrollable content area - mode panels + constraints */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {/* Mode-specific settings */}
-        {mode === 'ray_scribble' && (
-          <RayScribbleModePanel />
-        )}
+        {mode === "ray_scribble" && <RayScribbleModePanel />}
 
-        {mode === 'click_pocket' && currentProjectId && (
+        {mode === "click_pocket" && currentProjectId && (
           <ClickPocketModePanel projectId={currentProjectId} />
         )}
 
-        {mode === 'primitive' && (
+        {mode === "primitive" && (
           <div className="border-b border-gray-800">
             <PrimitiveMode />
           </div>
         )}
 
-        {mode === 'slice' && currentProjectId && (
+        {mode === "slice" && currentProjectId && (
           <SliceModePanel projectId={currentProjectId} />
         )}
 
-        {mode === 'brush' && (
-          <BrushModePanel />
-        )}
+        {mode === "brush" && <BrushModePanel />}
 
-        {mode === 'seed' && currentProjectId && (
+        {mode === "seed" && currentProjectId && (
           <SeedModePanel projectId={currentProjectId} />
         )}
 
-        {mode === 'import' && currentProjectId && (
+        {mode === "import" && currentProjectId && (
           <MLImportModePanel projectId={currentProjectId} />
+        )}
+
+        {mode === "auto" && currentProjectId && (
+          <AutoModePanel projectId={currentProjectId} />
         )}
 
         {/* Constraints list */}
         <div className="p-4">
-          <h3 className="text-sm font-medium mb-3">
-            Constraints ({constraints.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium">
+              Constraints ({constraints.length})
+            </h3>
+            {currentProjectId && constraints.length > 0 && (
+              <ClearConstraintsButton
+                projectId={currentProjectId}
+                constraintCount={constraints.length}
+              />
+            )}
+          </div>
 
           {constraints.length === 0 ? (
             <p className="text-sm text-gray-500">
@@ -433,8 +630,8 @@ export function LabelPanel() {
                         constraint={constraint}
                         onDelete={() => {
                           if (currentProjectId) {
-                            removeConstraint(currentProjectId, constraint.id)
-                            syncDeleteConstraint(constraint.id)
+                            removeConstraint(currentProjectId, constraint.id);
+                            syncDeleteConstraint(constraint.id);
                           }
                         }}
                       />
@@ -449,26 +646,30 @@ export function LabelPanel() {
 
       {/* Export section */}
       {currentProjectId && constraints.length > 0 && (
-        <ExportSection projectId={currentProjectId} constraintCount={constraints.length} />
+        <ExportSection
+          projectId={currentProjectId}
+          constraintCount={constraints.length}
+        />
       )}
     </div>
-  )
+  );
 }
 
 interface ConstraintItemProps {
-  constraint: Constraint
-  onDelete: () => void
+  constraint: Constraint;
+  onDelete: () => void;
 }
 
 function ConstraintItem({ constraint, onDelete }: ConstraintItemProps) {
   const labelColor =
-    constraint.sign === 'solid'
-      ? 'bg-solid'
-      : constraint.sign === 'empty'
-      ? 'bg-empty'
-      : 'bg-surface'
+    constraint.sign === "solid"
+      ? "bg-solid"
+      : constraint.sign === "empty"
+        ? "bg-empty"
+        : "bg-surface";
 
-  const name = constraint.name || `${constraint.type} ${constraint.id.slice(0, 4)}`
+  const name =
+    constraint.name || `${constraint.type} ${constraint.id.slice(0, 4)}`;
 
   return (
     <li className="flex items-center gap-2 p-2 rounded hover:bg-gray-800 group">
@@ -481,28 +682,95 @@ function ConstraintItem({ constraint, onDelete }: ConstraintItemProps) {
         <TrashIcon className="w-4 h-4" />
       </button>
     </li>
-  )
+  );
+}
+
+interface ClearConstraintsButtonProps {
+  projectId: string;
+  constraintCount: number;
+}
+
+function ClearConstraintsButton({
+  projectId,
+  constraintCount,
+}: ClearConstraintsButtonProps) {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const clearLocalConstraints = useLabelStore((s) => s.clearConstraints);
+
+  const clearMutation = useMutation({
+    mutationFn: () => clearConstraintsApi(projectId),
+    onSuccess: () => {
+      clearLocalConstraints(projectId);
+      queryClient.invalidateQueries({ queryKey: ["constraints", projectId] });
+      toast.success("Constraints cleared", "All constraints have been removed");
+      setOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to clear constraints", error.message);
+    },
+  });
+
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          title="Clear all constraints"
+        >
+          Clear All
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 p-6 bg-gray-900 rounded-lg border border-gray-700 shadow-xl">
+          <Dialog.Title className="text-lg font-medium mb-2">
+            Clear All Constraints?
+          </Dialog.Title>
+          <Dialog.Description className="text-sm text-gray-400 mb-4">
+            This will permanently delete all {constraintCount} constraint
+            {constraintCount !== 1 ? "s" : ""}. This action cannot be undone.
+          </Dialog.Description>
+          <div className="flex justify-end gap-2">
+            <Dialog.Close asChild>
+              <button className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+                Cancel
+              </button>
+            </Dialog.Close>
+            <button
+              onClick={() => clearMutation.mutate()}
+              disabled={clearMutation.isPending}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {clearMutation.isPending ? "Clearing..." : "Clear All"}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
 }
 
 function formatConstraintType(type: string): string {
   const labels: Record<string, string> = {
-    box: 'Boxes',
-    sphere: 'Spheres',
-    halfspace: 'Half-spaces',
-    cylinder: 'Cylinders',
-    brush_stroke: 'Brush Strokes',
-    seed_propagation: 'Propagated Seeds',
-    ml_import: 'ML Imports',
-    ray_carve: 'Ray Carves',
-    pocket: 'Pockets',
-    slice_selection: 'Slice Selections',
-  }
-  return labels[type] || type
+    box: "Boxes",
+    sphere: "Spheres",
+    halfspace: "Half-spaces",
+    cylinder: "Cylinders",
+    brush_stroke: "Brush Strokes",
+    seed_propagation: "Propagated Seeds",
+    ml_import: "ML Imports",
+    ray_carve: "Ray Carves",
+    pocket: "Pockets",
+    slice_selection: "Slice Selections",
+    sample_point: "Sample Points",
+  };
+  return labels[type] || type;
 }
 
 function ShowSamplesToggle() {
-  const showSamples = useProjectStore((s) => s.showSamples)
-  const setShowSamples = useProjectStore((s) => s.setShowSamples)
+  const showSamples = useProjectStore((s) => s.showSamples);
+  const setShowSamples = useProjectStore((s) => s.setShowSamples);
 
   return (
     <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -514,17 +782,17 @@ function ShowSamplesToggle() {
       />
       <span className="text-gray-300">Show samples in viewport</span>
     </label>
-  )
+  );
 }
 
 interface ExportSectionProps {
-  projectId: string
-  constraintCount: number
+  projectId: string;
+  constraintCount: number;
 }
 
 function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
-  const [sampleCount, setSampleCount] = useState<number | null>(null)
-  const [samplesPerPrimitive, setSamplesPerPrimitive] = useState(100)
+  const [sampleCount, setSampleCount] = useState<number | null>(null);
+  const [samplesPerPrimitive, setSamplesPerPrimitive] = useState(100);
 
   const generateMutation = useMutation({
     mutationFn: () =>
@@ -532,38 +800,38 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
         total_samples: 10000,
         samples_per_primitive: samplesPerPrimitive,
         include_surface: true,
-        far_direction: 'bidirectional',
+        far_direction: "bidirectional",
       }),
     onSuccess: (data) => {
-      setSampleCount(data.sample_count)
+      setSampleCount(data.sample_count);
       toast.success(
-        'Samples generated',
-        `${data.sample_count.toLocaleString()} training samples created`
-      )
+        "Samples generated",
+        `${data.sample_count.toLocaleString()} training samples created`,
+      );
     },
     onError: (error: Error) => {
-      toast.error('Generation failed', error.message)
+      toast.error("Generation failed", error.message);
     },
-  })
+  });
 
   const exportMutation = useMutation({
     mutationFn: () => exportParquet(projectId),
     onSuccess: (blob) => {
       // Download the file
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${projectId}_samples.parquet`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Export complete', 'Parquet file downloaded')
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${projectId}_samples.parquet`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Export complete", "Parquet file downloaded");
     },
     onError: (error: Error) => {
-      toast.error('Export failed', error.message)
+      toast.error("Export failed", error.message);
     },
-  })
+  });
 
   return (
     <div className="p-4 border-t border-gray-800 space-y-3">
@@ -579,7 +847,11 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
           max={10000}
           step={10}
           value={samplesPerPrimitive}
-          onChange={(e) => setSamplesPerPrimitive(Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)))}
+          onChange={(e) =>
+            setSamplesPerPrimitive(
+              Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
+            )
+          }
           className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
         />
       </div>
@@ -603,9 +875,7 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
       )}
 
       {/* Show samples toggle */}
-      {sampleCount !== null && (
-        <ShowSamplesToggle />
-      )}
+      {sampleCount !== null && <ShowSamplesToggle />}
 
       {generateMutation.isError && (
         <p className="text-sm text-red-400 text-center">
@@ -626,8 +896,8 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
       )}
 
       <p className="text-xs text-gray-500 text-center">
-        {constraintCount} constraint{constraintCount !== 1 ? 's' : ''} defined
+        {constraintCount} constraint{constraintCount !== 1 ? "s" : ""} defined
       </p>
     </div>
-  )
+  );
 }

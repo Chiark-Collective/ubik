@@ -36,8 +36,17 @@ class TestSurviBridge:
     def test_sdf_columns_complete(self):
         """Test that SDF_COLUMNS has all required columns."""
         expected = [
-            "x", "y", "z", "phi", "nx", "ny", "nz",
-            "weight", "source", "is_surface", "is_free",
+            "x",
+            "y",
+            "z",
+            "phi",
+            "nx",
+            "ny",
+            "nz",
+            "weight",
+            "source",
+            "is_surface",
+            "is_free",
         ]
         assert SDF_COLUMNS == expected
 
