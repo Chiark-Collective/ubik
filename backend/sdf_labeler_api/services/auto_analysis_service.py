@@ -1250,22 +1250,18 @@ class AutoAnalysisService:
     ) -> list[np.ndarray]:
         """Get representative points for proximity checking.
 
-        For boxes, returns center and corners.
+        For boxes, returns only the center - we want the center to be near
+        surface data, not just a corner touching.
         For sample points, returns the position.
         For other types, returns center if available.
         """
         points: list[np.ndarray] = []
 
         if c_type == "box":
+            # Only check center - if center is in void, box shouldn't exist
+            # Checking corners was too permissive (one corner touching = keep)
             center = np.array(constraint.get("center", [0, 0, 0]))
-            half = np.array(constraint.get("half_extents", [0, 0, 0]))
             points.append(center)
-            # Add corners for better coverage
-            for dx in [-1, 1]:
-                for dy in [-1, 1]:
-                    for dz in [-1, 1]:
-                        corner = center + np.array([dx, dy, dz]) * half
-                        points.append(corner)
 
         elif c_type == "sample_point":
             pos = constraint.get("position")
