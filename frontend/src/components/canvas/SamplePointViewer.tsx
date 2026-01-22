@@ -46,11 +46,15 @@ export function SamplePointViewer({
     return null;
   }
 
+  // Use keys to force remount when data changes (Three.js buffers don't update well)
+  const solidKey = `solid-${solidPositions.length}`;
+  const emptyKey = `empty-${emptyPositions.length}`;
+
   return (
     <group>
       {/* Solid (interior) points - blue */}
       {solidPositions.length > 0 && (
-        <Points>
+        <Points key={solidKey}>
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
@@ -72,7 +76,7 @@ export function SamplePointViewer({
 
       {/* Empty (exterior) points - orange */}
       {emptyPositions.length > 0 && (
-        <Points>
+        <Points key={emptyKey}>
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
