@@ -29,15 +29,6 @@ export interface AutoModeProps {
 
 const ALL_ALGORITHMS: AlgorithmType[] = [
   "pocket",
-  "normal_offset",
-  "flood_fill",
-  "voxel_regions",
-  "normal_idw",
-];
-
-// Default enabled algorithms (normal_offset disabled since IDW sampling is preferred)
-const DEFAULT_ENABLED_ALGORITHMS: AlgorithmType[] = [
-  "pocket",
   "flood_fill",
   "voxel_regions",
   "normal_idw",
@@ -45,7 +36,6 @@ const DEFAULT_ENABLED_ALGORITHMS: AlgorithmType[] = [
 
 const ALGORITHM_LABELS: Record<AlgorithmType, string> = {
   pocket: "Pocket Detection",
-  normal_offset: "Normal Offset",
   flood_fill: "Sky-Reachable Exterior",
   voxel_regions: "Underground Regions",
   normal_idw: "IDW Normal Sampling",
@@ -53,7 +43,6 @@ const ALGORITHM_LABELS: Record<AlgorithmType, string> = {
 
 const ALGORITHM_DESCRIPTIONS: Record<AlgorithmType, string> = {
   pocket: "Detect interior cavities (solid)",
-  normal_offset: "Surface-relative offset boxes (solid/empty pairs)",
   flood_fill: "Sky-reachable exterior regions (empty)",
   voxel_regions: "Underground regions not reachable from sky (solid)",
   normal_idw: "Training samples along normals weighted by distance",
@@ -166,7 +155,7 @@ export function AutoMode({
   const [showOptions, setShowOptions] = useState(false);
   // Track which algorithms are enabled for analysis
   const [enabledAlgorithms, setEnabledAlgorithms] = useState<Set<AlgorithmType>>(
-    new Set(DEFAULT_ENABLED_ALGORITHMS)
+    new Set(ALL_ALGORITHMS)
   );
   // Track which algorithms are expanded (showing their constraint items)
   const [expandedAlgorithms, setExpandedAlgorithms] = useState<Set<string>>(
@@ -316,20 +305,6 @@ export function AutoMode({
               defaultValue={DEFAULT_OPTIONS.cone_angle}
               onChange={(v) => onSetOptions({ cone_angle: v })}
               unit="°"
-            />
-          </div>
-
-          {/* Normal Offset */}
-          <div className="space-y-2 pb-2 border-b border-gray-700">
-            <div className="text-gray-500 text-xs">Normal Offset</div>
-            <OptionsSlider
-              label="Offset Pairs"
-              value={options.normal_offset_pairs}
-              min={10}
-              max={200}
-              step={5}
-              defaultValue={DEFAULT_OPTIONS.normal_offset_pairs}
-              onChange={(v) => onSetOptions({ normal_offset_pairs: v })}
             />
           </div>
 
