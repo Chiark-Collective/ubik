@@ -402,9 +402,9 @@ export function AutoMode({
         )}
       </div>
 
-      {/* Flood Fill Output Mode */}
+      {/* Flood Fill Output Mode (EMPTY) */}
       <div className="space-y-2 border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 font-medium">Flood Fill Output</div>
+        <div className="text-xs text-gray-400 font-medium">Flood Fill Output (Empty)</div>
         <select
           value={options.flood_fill_output}
           onChange={(e) =>
@@ -428,6 +428,36 @@ export function AutoMode({
             step={50}
             defaultValue={DEFAULT_OPTIONS.flood_fill_sample_count}
             onChange={(v) => onSetOptions({ flood_fill_sample_count: v })}
+          />
+        )}
+      </div>
+
+      {/* Voxel Regions Output Mode (SOLID) */}
+      <div className="space-y-2 border-t border-gray-700 pt-3">
+        <div className="text-xs text-gray-400 font-medium">Voxel Regions Output (Solid)</div>
+        <select
+          value={options.voxel_regions_output}
+          onChange={(e) =>
+            onSetOptions({
+              voxel_regions_output: e.target.value as "boxes" | "samples" | "both",
+            })
+          }
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:border-blue-500 focus:outline-none"
+        >
+          <option value="samples">Samples (rotation-invariant)</option>
+          <option value="boxes">Boxes (axis-aligned)</option>
+          <option value="both">Both</option>
+        </select>
+        {(options.voxel_regions_output === "samples" ||
+          options.voxel_regions_output === "both") && (
+          <OptionsSlider
+            label="Sample Count"
+            value={options.voxel_regions_sample_count}
+            min={50}
+            max={5000}
+            step={50}
+            defaultValue={DEFAULT_OPTIONS.voxel_regions_sample_count}
+            onChange={(v) => onSetOptions({ voxel_regions_sample_count: v })}
           />
         )}
       </div>

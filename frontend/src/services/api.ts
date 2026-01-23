@@ -516,13 +516,25 @@ export interface AutoAnalysisOptions {
   normal_offset_pairs?: number; // 10-200, default 40
 
   // Filtering
-  max_boxes?: number; // 5-100, default 15
+  max_boxes?: number; // 5-100, default 30
   overlap_threshold?: number; // 0.1-0.9, default 0.5
 
   // IDW Normal sampling
   idw_sample_count?: number; // 100-10000, default 1000
   idw_max_distance?: number; // 0.05-2.0, default 0.5
   idw_power?: number; // 0.5-4.0, default 2.0
+
+  // Hull filtering
+  hull_filter_enabled?: boolean; // default true
+  hull_alpha?: number; // 0.1-20.0, default 1.0
+
+  // Flood fill output mode (EMPTY regions)
+  flood_fill_output?: "boxes" | "samples" | "both"; // default "samples"
+  flood_fill_sample_count?: number; // 50-5000, default 500
+
+  // Voxel regions output mode (SOLID regions)
+  voxel_regions_output?: "boxes" | "samples" | "both"; // default "samples"
+  voxel_regions_sample_count?: number; // 50-5000, default 500
 }
 
 export interface ApplyConstraintsRequest {

@@ -88,7 +88,7 @@ class AutoAnalysisOptions(BaseModel):
         description="Alpha shape parameter (smaller = tighter fit to concave boundaries)",
     )
 
-    # Flood fill output mode
+    # Flood fill output mode (EMPTY regions)
     flood_fill_output: str = Field(
         default="samples",
         description="Output mode for flood fill: 'boxes' (axis-aligned), 'samples' (point samples), or 'both'",
@@ -98,6 +98,18 @@ class AutoAnalysisOptions(BaseModel):
         ge=50,
         le=5000,
         description="Number of sample points to generate from empty voxels (when output=samples or both)",
+    )
+
+    # Voxel regions output mode (SOLID regions)
+    voxel_regions_output: str = Field(
+        default="samples",
+        description="Output mode for voxel regions: 'boxes' (axis-aligned), 'samples' (point samples), or 'both'",
+    )
+    voxel_regions_sample_count: int = Field(
+        default=500,
+        ge=50,
+        le=5000,
+        description="Number of sample points to generate from solid voxels (when output=samples or both)",
     )
 
 

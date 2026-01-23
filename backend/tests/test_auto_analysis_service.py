@@ -367,9 +367,9 @@ class TestVoxelRegionConstraints:
         constraints = auto_service._generate_voxel_region_constraints(xyz, normals, default_options)
 
         # May or may not generate constraints depending on voxelization
-        # If it does, they should be SOLID
+        # If it does, they should be SOLID (either box or sample_point depending on output mode)
         for c in constraints:
-            assert c.constraint["type"] == "box"
+            assert c.constraint["type"] in ("box", "sample_point")
             assert c.constraint["sign"] == "solid"
             assert c.algorithm == AlgorithmType.VOXEL_REGIONS
 

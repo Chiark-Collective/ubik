@@ -938,14 +938,16 @@ class AutoAnalysisService:
     def _generate_voxel_region_constraints(
         self, xyz: np.ndarray, _normals: np.ndarray | None, options: AutoAnalysisOptions
     ) -> list[GeneratedConstraint]:
-        """Generate SOLID box constraints for underground regions.
+        """Generate SOLID constraints for underground regions.
 
         Uses directional Z-ray propagation: SOLID propagates up from Z_min
         until hitting the surface. Only voxels inside the 2D convex hull
         are marked SOLID (exterior columns remain unmarked).
 
-        Uses per-Z-slice greedy meshing to create boxes that correctly
-        avoid trench interiors (which are marked EMPTY, not SOLID).
+        Output depends on voxel_regions_output option:
+           - "boxes": Uses per-Z-slice greedy meshing to create axis-aligned boxes
+           - "samples": Generates point samples within solid voxels
+           - "both": Both boxes and samples
         """
         constraints: list[GeneratedConstraint] = []
 
@@ -954,7 +956,6 @@ class AutoAnalysisService:
             return constraints
 
         occupied, bbox_min, voxel_size, grid_shape = grid_result
-        _nx, _ny, nz = grid_shape
 
         # Compute hull mask for limiting SOLID propagation
         inside_hull = self._compute_hull_mask(xyz, bbox_min, voxel_size, grid_shape)
@@ -963,6 +964,42 @@ class AutoAnalysisService:
         _, solid_mask = self._ray_propagation_with_bounces(
             occupied, grid_shape, inside_hull, options.cone_angle
         )
+
+        output_mode = options.voxel_regions_output.lower()
+
+        # Generate samples if requested
+        if output_mode in ("samples", "both"):
+            sample_constraints = self._generate_samples_from_mask(
+                solid_mask,
+                bbox_min,
+                voxel_size,
+                xyz,
+                options.voxel_regions_sample_count,
+                SignConvention.SOLID,
+                AlgorithmType.VOXEL_REGIONS,
+            )
+            constraints.extend(sample_constraints)
+
+        # Generate boxes if requested
+        if output_mode in ("boxes", "both"):
+            box_constraints = self._generate_boxes_from_solid_mask(
+                solid_mask, bbox_min, voxel_size, grid_shape, options
+            )
+            constraints.extend(box_constraints)
+
+        return constraints
+
+    def _generate_boxes_from_solid_mask(
+        self,
+        solid_mask: np.ndarray,
+        bbox_min: np.ndarray,
+        voxel_size: float,
+        grid_shape: tuple[int, int, int],
+        options: AutoAnalysisOptions,
+    ) -> list[GeneratedConstraint]:
+        """Generate SOLID box constraints from a voxel mask using greedy meshing."""
+        constraints: list[GeneratedConstraint] = []
+        _nx, _ny, nz = grid_shape
 
         # Decompose each Z-slice into rectangles using greedy meshing
         # This creates boxes that avoid trench interiors

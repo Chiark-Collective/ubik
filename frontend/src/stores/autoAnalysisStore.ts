@@ -62,9 +62,13 @@ export interface AutoAnalysisOptions {
   hull_filter_enabled: boolean; // default true
   hull_alpha: number; // 0.1-20.0, default 2.0 (smaller = tighter fit)
 
-  // Flood fill output mode
+  // Flood fill output mode (EMPTY regions)
   flood_fill_output: "boxes" | "samples" | "both"; // default "samples"
   flood_fill_sample_count: number; // 50-5000, default 500
+
+  // Voxel regions output mode (SOLID regions)
+  voxel_regions_output: "boxes" | "samples" | "both"; // default "samples"
+  voxel_regions_sample_count: number; // 50-5000, default 500
 }
 
 export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
@@ -80,6 +84,8 @@ export const DEFAULT_OPTIONS: AutoAnalysisOptions = {
   hull_alpha: 1.0,
   flood_fill_output: "samples",
   flood_fill_sample_count: 500,
+  voxel_regions_output: "samples",
+  voxel_regions_sample_count: 500,
 };
 
 interface AutoAnalysisState {
