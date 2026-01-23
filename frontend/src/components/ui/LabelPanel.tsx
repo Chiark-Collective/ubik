@@ -903,23 +903,6 @@ function formatConstraintType(type: string): string {
   return labels[type] || type;
 }
 
-function ShowSamplesToggle() {
-  const showSamples = useProjectStore((s) => s.showSamples);
-  const setShowSamples = useProjectStore((s) => s.setShowSamples);
-
-  return (
-    <label className="flex items-center gap-2 text-sm cursor-pointer">
-      <input
-        type="checkbox"
-        checked={showSamples}
-        onChange={(e) => setShowSamples(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-      />
-      <span className="text-gray-300">Show samples in viewport</span>
-    </label>
-  );
-}
-
 interface ExportSectionProps {
   projectId: string;
   constraintCount: number;
@@ -934,6 +917,22 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
   const [samplesPerCubicMeter, setSamplesPerCubicMeter] = useState(10000);
   const [inverseSquareBaseSamples, setInverseSquareBaseSamples] = useState(100);
   const [inverseSquareFalloff, setInverseSquareFalloff] = useState(2.0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Get constraints to check for sample_point type
+  const constraints = useLabelStore((s) =>
+    projectId ? s.getConstraints(projectId) : [],
+  );
+  const samplePointCount = constraints.filter(
+    (c) => c.type === "sample_point",
+  ).length;
+  const shapeConstraintCount = constraintCount - samplePointCount;
+
+  // Also count expanded preview points
+  const expandedPointCount = useProjectStore(
+    (s) => s.expandedSamplePoints.length,
+  );
+  const totalVisiblePoints = samplePointCount + expandedPointCount;
 
   const generateMutation = useMutation({
     mutationFn: () =>
@@ -980,139 +979,160 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
 
   return (
     <div className="p-4 border-t border-gray-800 space-y-3">
-      {/* Sampling strategy selection */}
-      <div className="space-y-2">
-        <label className="text-sm text-gray-400">Sampling Strategy</label>
-        <select
-          value={strategy}
-          onChange={(e) => setStrategy(e.target.value as SamplingStrategy)}
-          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white focus:border-blue-500 focus:outline-none text-sm"
+      {/* Show visible points summary */}
+      {totalVisiblePoints > 0 && (
+        <p className="text-sm text-green-400 text-center">
+          {totalVisiblePoints.toLocaleString()} sample points visible
+        </p>
+      )}
+
+      {/* Advanced options toggle - only show if there are shape constraints */}
+      {shapeConstraintCount > 0 && (
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="text-xs text-gray-400 hover:text-gray-300 w-full text-left"
         >
-          <option value="constant">Constant (fixed per constraint)</option>
-          <option value="density">Density (proportional to volume)</option>
-          <option value="inverse_square">
-            Inverse Square (more near surface)
-          </option>
-        </select>
-      </div>
-
-      {/* Strategy-specific parameters */}
-      {strategy === "constant" && (
-        <div className="flex items-center justify-between text-sm">
-          <label htmlFor="samples-per-primitive" className="text-gray-400">
-            Samples per primitive
-          </label>
-          <input
-            id="samples-per-primitive"
-            type="number"
-            min={10}
-            max={10000}
-            step={10}
-            value={samplesPerPrimitive}
-            onChange={(e) =>
-              setSamplesPerPrimitive(
-                Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
-              )
-            }
-            className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
-          />
-        </div>
+          {showAdvanced ? "▼" : "▶"} Advanced sampling options
+        </button>
       )}
 
-      {strategy === "density" && (
-        <div className="flex items-center justify-between text-sm">
-          <label htmlFor="samples-per-m3" className="text-gray-400">
-            Samples per m³
-          </label>
-          <input
-            id="samples-per-m3"
-            type="number"
-            min={100}
-            max={1000000}
-            step={1000}
-            value={samplesPerCubicMeter}
-            onChange={(e) =>
-              setSamplesPerCubicMeter(
-                Math.max(
-                  100,
-                  Math.min(1000000, parseInt(e.target.value) || 10000),
-                ),
-              )
-            }
-            className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-      )}
-
-      {strategy === "inverse_square" && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <label htmlFor="inv-sq-base" className="text-gray-400">
-              Base samples
-            </label>
-            <input
-              id="inv-sq-base"
-              type="number"
-              min={10}
-              max={10000}
-              step={10}
-              value={inverseSquareBaseSamples}
-              onChange={(e) =>
-                setInverseSquareBaseSamples(
-                  Math.max(
-                    10,
-                    Math.min(10000, parseInt(e.target.value) || 100),
-                  ),
-                )
-              }
-              className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
-            />
+      {/* Sampling strategy selection - collapsed by default when sample_points exist */}
+      {showAdvanced && shapeConstraintCount > 0 && (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm text-gray-400">Sampling Strategy</label>
+            <select
+              value={strategy}
+              onChange={(e) => setStrategy(e.target.value as SamplingStrategy)}
+              className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white focus:border-blue-500 focus:outline-none text-sm"
+            >
+              <option value="constant">Constant (fixed per constraint)</option>
+              <option value="density">Density (proportional to volume)</option>
+              <option value="inverse_square">
+                Inverse Square (more near surface)
+              </option>
+            </select>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <label htmlFor="inv-sq-falloff" className="text-gray-400">
-              Falloff exponent
-            </label>
-            <input
-              id="inv-sq-falloff"
-              type="number"
-              min={0.5}
-              max={4.0}
-              step={0.1}
-              value={inverseSquareFalloff}
-              onChange={(e) =>
-                setInverseSquareFalloff(
-                  Math.max(
-                    0.5,
-                    Math.min(4.0, parseFloat(e.target.value) || 2.0),
-                  ),
-                )
-              }
-              className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
+
+          {/* Strategy-specific parameters */}
+          {strategy === "constant" && (
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="samples-per-primitive" className="text-gray-400">
+                Samples per primitive
+              </label>
+              <input
+                id="samples-per-primitive"
+                type="number"
+                min={10}
+                max={10000}
+                step={10}
+                value={samplesPerPrimitive}
+                onChange={(e) =>
+                  setSamplesPerPrimitive(
+                    Math.max(
+                      10,
+                      Math.min(10000, parseInt(e.target.value) || 100),
+                    ),
+                  )
+                }
+                className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {strategy === "density" && (
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="samples-per-m3" className="text-gray-400">
+                Samples per m³
+              </label>
+              <input
+                id="samples-per-m3"
+                type="number"
+                min={100}
+                max={1000000}
+                step={1000}
+                value={samplesPerCubicMeter}
+                onChange={(e) =>
+                  setSamplesPerCubicMeter(
+                    Math.max(
+                      100,
+                      Math.min(1000000, parseInt(e.target.value) || 10000),
+                    ),
+                  )
+                }
+                className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {strategy === "inverse_square" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <label htmlFor="inv-sq-base" className="text-gray-400">
+                  Base samples
+                </label>
+                <input
+                  id="inv-sq-base"
+                  type="number"
+                  min={10}
+                  max={10000}
+                  step={10}
+                  value={inverseSquareBaseSamples}
+                  onChange={(e) =>
+                    setInverseSquareBaseSamples(
+                      Math.max(
+                        10,
+                        Math.min(10000, parseInt(e.target.value) || 100),
+                      ),
+                    )
+                  }
+                  className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <label htmlFor="inv-sq-falloff" className="text-gray-400">
+                  Falloff exponent
+                </label>
+                <input
+                  id="inv-sq-falloff"
+                  type="number"
+                  min={0.5}
+                  max={4.0}
+                  step={0.1}
+                  value={inverseSquareFalloff}
+                  onChange={(e) =>
+                    setInverseSquareFalloff(
+                      Math.max(
+                        0.5,
+                        Math.min(4.0, parseFloat(e.target.value) || 2.0),
+                      ),
+                    )
+                  }
+                  className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Generate button */}
+      {/* Generate button - prepares data for export */}
       <LoadingButton
         onClick={() => generateMutation.mutate()}
         loading={generateMutation.isPending}
         className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Generate Samples
+        {sampleCount !== null ? "Regenerate Export Data" : "Prepare Export"}
       </LoadingButton>
 
       {/* Status */}
       {sampleCount !== null && (
         <div className="text-center">
           <p className="text-sm text-green-400">
-            {sampleCount.toLocaleString()} samples generated
+            {sampleCount.toLocaleString()} samples ready for export
           </p>
         </div>
       )}
-
-      {/* Show samples toggle */}
-      {sampleCount !== null && <ShowSamplesToggle />}
 
       {generateMutation.isError && (
         <p className="text-sm text-red-400 text-center">
@@ -1120,7 +1140,7 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
         </p>
       )}
 
-      {/* Export button (shown after generation) */}
+      {/* Export button - show when samples generated */}
       {sampleCount !== null && (
         <LoadingButton
           onClick={() => exportMutation.mutate()}
@@ -1133,7 +1153,14 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
       )}
 
       <p className="text-xs text-gray-500 text-center">
-        {constraintCount} constraint{constraintCount !== 1 ? "s" : ""} defined
+        {samplePointCount > 0 && <>{samplePointCount} sample points</>}
+        {samplePointCount > 0 && shapeConstraintCount > 0 && " + "}
+        {shapeConstraintCount > 0 && (
+          <>
+            {shapeConstraintCount} shape constraint
+            {shapeConstraintCount !== 1 ? "s" : ""}
+          </>
+        )}
       </p>
     </div>
   );
