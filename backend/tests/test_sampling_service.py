@@ -61,11 +61,12 @@ class TestSamplingServiceGenerate:
         result = sampling_service.generate(sample_project.id, request)
 
         assert result.sample_count > 0
-        assert "box_solid" in result.source_breakdown
+        # Source name may have strategy suffix (e.g., box_solid_inv_sq)
+        assert any(k.startswith("box_solid") for k in result.source_breakdown)
 
         # Check sample properties
         for sample in result.samples:
-            assert sample.source == "box_solid"
+            assert sample.source.startswith("box_solid")
             assert sample.phi < 0  # Solid = negative SDF
             assert sample.is_free is False
             assert sample.weight == 1.0
@@ -91,7 +92,8 @@ class TestSamplingServiceGenerate:
         assert result.sample_count > 0
 
         for sample in result.samples:
-            assert sample.source == "box_empty"
+            # Source name may have strategy suffix (e.g., box_empty_inv_sq)
+            assert sample.source.startswith("box_empty")
             assert sample.phi > 0  # Empty = positive SDF
             assert sample.is_free is True
 
@@ -114,7 +116,8 @@ class TestSamplingServiceGenerate:
         result = sampling_service.generate(sample_project.id, request)
 
         assert result.sample_count > 0
-        assert "sphere_solid" in result.source_breakdown
+        # Source name may have strategy suffix
+        assert any(k.startswith("sphere_solid") for k in result.source_breakdown)
 
         # Check normals are unit vectors (pointing outward from sphere center)
         for sample in result.samples:
@@ -141,7 +144,8 @@ class TestSamplingServiceGenerate:
         result = sampling_service.generate(sample_project.id, request)
 
         assert result.sample_count > 0
-        assert "halfspace_empty" in result.source_breakdown
+        # Source name may have strategy suffix
+        assert any(k.startswith("halfspace_empty") for k in result.source_breakdown)
 
     def test_generate_from_brush_stroke(
         self,
@@ -158,7 +162,12 @@ class TestSamplingServiceGenerate:
         )
         constraint_service.add(sample_project.id, stroke)
 
-        request = SampleGenerationRequest(samples_per_primitive=10)
+        # Use CONSTANT strategy to get predictable sample counts
+        from sdf_labeler_api.models.samples import SamplingStrategy
+
+        request = SampleGenerationRequest(
+            strategy=SamplingStrategy.CONSTANT, samples_per_primitive=10
+        )
         result = sampling_service.generate(sample_project.id, request)
 
         # 3 stroke points * 10 samples each = 30 samples
@@ -222,8 +231,9 @@ class TestSamplingServiceGenerate:
         result = sampling_service.generate(sample_project.id, request)
 
         assert result.sample_count > 0
-        assert "box_solid" in result.source_breakdown
-        assert "sphere_empty" in result.source_breakdown
+        # Source names may have strategy suffix
+        assert any(k.startswith("box_solid") for k in result.source_breakdown)
+        assert any(k.startswith("sphere_empty") for k in result.source_breakdown)
 
     def test_generate_with_custom_weight(
         self,

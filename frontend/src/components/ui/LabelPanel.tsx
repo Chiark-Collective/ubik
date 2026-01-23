@@ -794,7 +794,7 @@ type SamplingStrategy = "constant" | "density" | "inverse_square";
 
 function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
   const [sampleCount, setSampleCount] = useState<number | null>(null);
-  const [strategy, setStrategy] = useState<SamplingStrategy>("constant");
+  const [strategy, setStrategy] = useState<SamplingStrategy>("inverse_square");
   const [samplesPerPrimitive, setSamplesPerPrimitive] = useState(100);
   const [samplesPerCubicMeter, setSamplesPerCubicMeter] = useState(10000);
   const [inverseSquareBaseSamples, setInverseSquareBaseSamples] = useState(100);

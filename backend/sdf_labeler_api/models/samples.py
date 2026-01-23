@@ -22,7 +22,7 @@ class SampleGenerationRequest(BaseModel):
 
     # Sampling strategy
     strategy: SamplingStrategy = Field(
-        default=SamplingStrategy.CONSTANT,
+        default=SamplingStrategy.INVERSE_SQUARE,
         description="Sampling strategy: constant (fixed per constraint), density (proportional to volume), inverse_square (more near surface)",
     )
 
