@@ -134,6 +134,17 @@ class SamplePoint(BaseModel):
     phi: float
 
 
+class ExpandToPointsRequest(BaseModel):
+    """Request to expand shape constraints to sample points for visualization."""
+
+    samples_per_constraint: int = Field(
+        default=100,
+        ge=10,
+        le=1000,
+        description="Number of sample points to generate per shape constraint",
+    )
+
+
 class SampleVisualizationResponse(BaseModel):
     """Response for sample visualization endpoint."""
 

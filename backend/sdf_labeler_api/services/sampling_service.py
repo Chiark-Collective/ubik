@@ -229,7 +229,12 @@ class SamplingService:
                 if request.strategy == SamplingStrategy.INVERSE_SQUARE:
                     samples.extend(
                         self._sample_box_inverse_square(
-                            constraint, rng, project.config.near_band, n_samples, surface_tree, request
+                            constraint,
+                            rng,
+                            project.config.near_band,
+                            n_samples,
+                            surface_tree,
+                            request,
                         )
                     )
                 else:
@@ -290,17 +295,17 @@ class SamplingService:
             return float(np.prod(half * 2))  # length * width * height
 
         elif isinstance(constraint, SphereConstraint):
-            return (4 / 3) * np.pi * (constraint.radius ** 3)
+            return (4 / 3) * np.pi * (constraint.radius**3)
 
         elif isinstance(constraint, PocketConstraint):
             # Estimate from voxel count (assume ~0.01m voxels)
             voxel_size = 0.01
-            return constraint.voxel_count * (voxel_size ** 3)
+            return constraint.voxel_count * (voxel_size**3)
 
         elif isinstance(constraint, BrushStrokeConstraint):
             # Volume of spheres at each stroke point
             n_points = len(constraint.stroke_points)
-            sphere_vol = (4 / 3) * np.pi * (constraint.radius ** 3)
+            sphere_vol = (4 / 3) * np.pi * (constraint.radius**3)
             return n_points * sphere_vol * 0.5  # Overlap factor
 
         # Default: small volume
@@ -925,3 +930,281 @@ class SamplingService:
             phi_min=phi_min,
             phi_max=phi_max,
         )
+
+    def expand_to_sample_points(
+        self, project_id: str, samples_per_constraint: int = 100
+    ) -> list[dict]:
+        """Expand shape constraints to sample_point constraints for visualization.
+
+        This converts boxes, spheres, cylinders etc. to individual sample points
+        using inverse-square distance weighting (more points near surface).
+
+        Returns a list of sample_point constraint dicts ready for visualization.
+        """
+        from scipy.spatial import KDTree
+
+        from sdf_labeler_api.config import settings
+        from sdf_labeler_api.services.constraint_service import ConstraintService
+
+        constraint_service = ConstraintService()
+        constraints = constraint_service.list_all(project_id)
+
+        # Load point cloud for distance computation
+        try:
+            xyz, _ = self._load_pointcloud(project_id, settings.data_dir)
+        except ValueError:
+            return []
+
+        if xyz is None or len(xyz) == 0:
+            return []
+
+        # Build KD-tree for distance to surface
+        tree = KDTree(xyz)
+        rng = np.random.default_rng(42)
+
+        sample_points = []
+
+        for constraint in constraints.constraints:
+            # Skip sample_point constraints - they're already points
+            if isinstance(constraint, SamplePointConstraint):
+                continue
+
+            # Generate sample points for shape constraints
+            points = self._expand_constraint_to_points(
+                constraint, samples_per_constraint, tree, rng
+            )
+            sample_points.extend(points)
+
+        return sample_points
+
+    def _expand_constraint_to_points(
+        self,
+        constraint: Any,
+        n_samples: int,
+        surface_tree: Any,
+        rng: np.random.Generator,
+    ) -> list[dict]:
+        """Convert a single shape constraint to sample point dicts."""
+        from sdf_labeler_api.models.constraints import CylinderConstraint
+
+        points = []
+
+        if isinstance(constraint, BoxConstraint):
+            points = self._expand_box(constraint, n_samples, surface_tree, rng)
+        elif isinstance(constraint, SphereConstraint):
+            points = self._expand_sphere(constraint, n_samples, surface_tree, rng)
+        elif isinstance(constraint, CylinderConstraint):
+            points = self._expand_cylinder(constraint, n_samples, surface_tree, rng)
+        elif isinstance(constraint, HalfspaceConstraint):
+            # Halfspace needs bounds - skip for now
+            pass
+        elif isinstance(constraint, BrushStrokeConstraint):
+            points = self._expand_brush_stroke(constraint, n_samples, surface_tree, rng)
+        elif isinstance(constraint, PocketConstraint):
+            # Pocket already has voxels - could expand but skip for now
+            pass
+
+        return points
+
+    def _expand_box(
+        self,
+        constraint: BoxConstraint,
+        n_samples: int,
+        surface_tree: Any,
+        rng: np.random.Generator,
+    ) -> list[dict]:
+        """Expand box constraint to sample points with inverse-square weighting."""
+        center = np.array(constraint.center)
+        half = np.array(constraint.half_extents)
+
+        # Generate candidates with inverse-square rejection sampling
+        points = []
+        n_candidates = n_samples * 10
+
+        for _ in range(n_candidates):
+            if len(points) >= n_samples:
+                break
+
+            # Random point in box
+            point = center + rng.uniform(-1, 1, 3) * half
+
+            # Distance to surface
+            dist, _ = surface_tree.query(point, k=1)
+
+            # Inverse-square acceptance
+            min_dist = max(dist, 0.01)
+            weight = 1.0 / (min_dist**2)
+            max_weight = 1.0 / (0.01**2)
+
+            if rng.random() < weight / max_weight:
+                signed_dist = -dist if constraint.sign == SignConvention.SOLID else dist
+                points.append(
+                    {
+                        "type": "sample_point",
+                        "sign": constraint.sign.value,
+                        "position": tuple(point.tolist()),
+                        "distance": float(signed_dist),
+                    }
+                )
+
+        return points
+
+    def _expand_sphere(
+        self,
+        constraint: SphereConstraint,
+        n_samples: int,
+        surface_tree: Any,
+        rng: np.random.Generator,
+    ) -> list[dict]:
+        """Expand sphere constraint to sample points."""
+        center = np.array(constraint.center)
+        radius = constraint.radius
+
+        points = []
+        n_candidates = n_samples * 10
+
+        for _ in range(n_candidates):
+            if len(points) >= n_samples:
+                break
+
+            # Random point in sphere (cube rejection sampling)
+            while True:
+                point = center + rng.uniform(-1, 1, 3) * radius
+                if np.linalg.norm(point - center) <= radius:
+                    break
+
+            # Distance to surface
+            dist, _ = surface_tree.query(point, k=1)
+
+            # Inverse-square acceptance
+            min_dist = max(dist, 0.01)
+            weight = 1.0 / (min_dist**2)
+            max_weight = 1.0 / (0.01**2)
+
+            if rng.random() < weight / max_weight:
+                signed_dist = -dist if constraint.sign == SignConvention.SOLID else dist
+                points.append(
+                    {
+                        "type": "sample_point",
+                        "sign": constraint.sign.value,
+                        "position": tuple(point.tolist()),
+                        "distance": float(signed_dist),
+                    }
+                )
+
+        return points
+
+    def _expand_cylinder(
+        self,
+        constraint: Any,  # CylinderConstraint
+        n_samples: int,
+        surface_tree: Any,
+        rng: np.random.Generator,
+    ) -> list[dict]:
+        """Expand cylinder constraint to sample points."""
+        center = np.array(constraint.center)
+        radius = constraint.radius
+        height = constraint.height
+        axis = np.array(constraint.axis)
+        axis = axis / np.linalg.norm(axis)
+
+        points = []
+        n_candidates = n_samples * 10
+
+        for _ in range(n_candidates):
+            if len(points) >= n_samples:
+                break
+
+            # Random point in cylinder
+            # Random height along axis
+            h = rng.uniform(-height / 2, height / 2)
+            # Random point in disk
+            theta = rng.uniform(0, 2 * np.pi)
+            r = radius * np.sqrt(rng.uniform(0, 1))
+
+            # Build orthonormal basis
+            if abs(axis[2]) < 0.9:
+                perp1 = np.cross(axis, [0, 0, 1])
+            else:
+                perp1 = np.cross(axis, [1, 0, 0])
+            perp1 = perp1 / np.linalg.norm(perp1)
+            perp2 = np.cross(axis, perp1)
+
+            point = center + h * axis + r * (np.cos(theta) * perp1 + np.sin(theta) * perp2)
+
+            # Distance to surface
+            dist, _ = surface_tree.query(point, k=1)
+
+            # Inverse-square acceptance
+            min_dist = max(dist, 0.01)
+            weight = 1.0 / (min_dist**2)
+            max_weight = 1.0 / (0.01**2)
+
+            if rng.random() < weight / max_weight:
+                signed_dist = -dist if constraint.sign == SignConvention.SOLID else dist
+                points.append(
+                    {
+                        "type": "sample_point",
+                        "sign": constraint.sign.value,
+                        "position": tuple(point.tolist()),
+                        "distance": float(signed_dist),
+                    }
+                )
+
+        return points
+
+    def _expand_brush_stroke(
+        self,
+        constraint: BrushStrokeConstraint,
+        n_samples: int,
+        surface_tree: Any,
+        rng: np.random.Generator,
+    ) -> list[dict]:
+        """Expand brush stroke constraint to sample points."""
+        points = []
+        samples_per_point = max(1, n_samples // len(constraint.stroke_points))
+
+        for stroke_pt in constraint.stroke_points:
+            center = np.array(stroke_pt)
+            radius = constraint.radius
+
+            n_candidates = samples_per_point * 10
+            for _ in range(n_candidates):
+                if (
+                    len(
+                        [
+                            p
+                            for p in points
+                            if np.linalg.norm(np.array(p["position"]) - center) < radius * 2
+                        ]
+                    )
+                    >= samples_per_point
+                ):
+                    break
+
+                # Random point in sphere around stroke point
+                direction = rng.standard_normal(3)
+                direction = direction / np.linalg.norm(direction)
+                r = radius * (rng.uniform(0, 1) ** (1 / 3))
+                point = center + r * direction
+
+                # Distance to surface
+                dist, _ = surface_tree.query(point, k=1)
+
+                # Inverse-square acceptance
+                min_dist = max(dist, 0.01)
+                weight = 1.0 / (min_dist**2)
+                max_weight = 1.0 / (0.01**2)
+
+                if rng.random() < weight / max_weight:
+                    signed_dist = -dist if constraint.sign == SignConvention.SOLID else dist
+                    points.append(
+                        {
+                            "type": "sample_point",
+                            "sign": constraint.sign.value,
+                            "position": tuple(point.tolist()),
+                            "distance": float(signed_dist),
+                        }
+                    )
+
+        return points

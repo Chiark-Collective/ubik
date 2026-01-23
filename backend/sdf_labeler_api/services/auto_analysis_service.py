@@ -764,7 +764,13 @@ class AutoAnalysisService:
         # Generate boxes if requested
         if output_mode in ("boxes", "both"):
             box_constraints = self._generate_boxes_from_mask(
-                empty_mask, bbox_min, voxel_size, nz, options, SignConvention.EMPTY, AlgorithmType.FLOOD_FILL
+                empty_mask,
+                bbox_min,
+                voxel_size,
+                nz,
+                options,
+                SignConvention.EMPTY,
+                AlgorithmType.FLOOD_FILL,
             )
             constraints.extend(box_constraints)
 
@@ -813,9 +819,7 @@ class AutoAnalysisService:
         weights = weights / weights.sum()
 
         # Sample voxels according to inverse-square weights
-        sample_indices = rng.choice(
-            len(marked_indices), size=n_samples, replace=True, p=weights
-        )
+        sample_indices = rng.choice(len(marked_indices), size=n_samples, replace=True, p=weights)
 
         for idx in sample_indices:
             voxel_ijk = marked_indices[idx]
@@ -1172,9 +1176,7 @@ class AutoAnalysisService:
 
         return constraints
 
-    def _orient_normals_outward(
-        self, xyz: np.ndarray, normals: np.ndarray
-    ) -> np.ndarray:
+    def _orient_normals_outward(self, xyz: np.ndarray, normals: np.ndarray) -> np.ndarray:
         """Orient normals to point outward using a viewpoint heuristic.
 
         Uses a simple but effective heuristic: the viewpoint is assumed to be
@@ -1406,9 +1408,7 @@ class AutoAnalysisService:
 
         return filtered
 
-    def _get_constraint_center_xy(
-        self, constraint: dict, c_type: str | None
-    ) -> np.ndarray | None:
+    def _get_constraint_center_xy(self, constraint: dict, c_type: str | None) -> np.ndarray | None:
         """Get the X-Y center of a constraint for hull checking."""
         center = None
 

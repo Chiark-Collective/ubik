@@ -72,6 +72,16 @@ interface ProjectState {
   // Sample visualization
   showSamples: boolean;
 
+  // Preview shapes as points
+  previewAsPoints: boolean;
+  samplesPerShape: number;
+  expandedSamplePoints: Array<{
+    type: "sample_point";
+    sign: "solid" | "empty";
+    position: [number, number, number];
+    distance: number;
+  }>;
+
   // Actions
   setCurrentProject: (projectId: string | null) => void;
   addProject: (project: Project) => void;
@@ -96,6 +106,17 @@ interface ProjectState {
   setSliceThickness: (thickness: number) => void;
 
   setShowSamples: (show: boolean) => void;
+
+  setPreviewAsPoints: (preview: boolean) => void;
+  setSamplesPerShape: (count: number) => void;
+  setExpandedSamplePoints: (
+    points: Array<{
+      type: "sample_point";
+      sign: "solid" | "empty";
+      position: [number, number, number];
+      distance: number;
+    }>,
+  ) => void;
 
   clearAllProjects: () => void;
 }
@@ -123,6 +144,10 @@ export const useProjectStore = create<ProjectState>()(
       sliceThickness: 0.1,
 
       showSamples: false,
+
+      previewAsPoints: true,
+      samplesPerShape: 100,
+      expandedSamplePoints: [],
 
       // Actions
       setCurrentProject: (projectId) => set({ currentProjectId: projectId }),
@@ -180,6 +205,11 @@ export const useProjectStore = create<ProjectState>()(
       setSliceThickness: (thickness) => set({ sliceThickness: thickness }),
 
       setShowSamples: (show) => set({ showSamples: show }),
+
+      setPreviewAsPoints: (preview) => set({ previewAsPoints: preview }),
+      setSamplesPerShape: (count) => set({ samplesPerShape: count }),
+      setExpandedSamplePoints: (points) =>
+        set({ expandedSamplePoints: points }),
 
       clearAllProjects: () =>
         set({

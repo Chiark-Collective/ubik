@@ -23,7 +23,7 @@ const WHITE = new THREE.Color("#ffffff");
 function distanceToColor(
   sign: "solid" | "empty" | "surface",
   distance: number,
-  maxDistance: number
+  maxDistance: number,
 ): THREE.Color {
   // Surface points get green, solid=blue, empty=orange
   const baseColor =

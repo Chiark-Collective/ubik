@@ -39,6 +39,7 @@ import {
   clearConstraints as clearConstraintsApi,
   runAutoAnalysis,
   applyAutoConstraints,
+  expandToSamplePoints,
 } from "../../services/api";
 
 const labelOptions: {
@@ -315,6 +316,133 @@ function ClickPocketModePanel({ projectId }: { projectId: string }) {
   );
 }
 
+// Preview as Points controls - expands shape constraints to sample points for visualization
+function PreviewAsPointsSection({ projectId }: { projectId: string }) {
+  const previewAsPoints = useProjectStore((s) => s.previewAsPoints);
+  const setPreviewAsPoints = useProjectStore((s) => s.setPreviewAsPoints);
+  const samplesPerShape = useProjectStore((s) => s.samplesPerShape);
+  const setSamplesPerShape = useProjectStore((s) => s.setSamplesPerShape);
+  const setExpandedSamplePoints = useProjectStore(
+    (s) => s.setExpandedSamplePoints,
+  );
+  const expandedSamplePoints = useProjectStore((s) => s.expandedSamplePoints);
+
+  const constraints = useLabelStore((s) =>
+    projectId ? s.getConstraints(projectId) : [],
+  );
+
+  // Count shape constraints (non-sample_point)
+  const shapeConstraintCount = constraints.filter(
+    (c) => c.type !== "sample_point",
+  ).length;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Expand shape constraints when toggle is enabled or samples per shape changes
+  useEffect(() => {
+    if (!previewAsPoints || shapeConstraintCount === 0) {
+      setExpandedSamplePoints([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const doExpand = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const points = await expandToSamplePoints(projectId, samplesPerShape);
+        if (!cancelled) {
+          setExpandedSamplePoints(points);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Expansion failed");
+          setExpandedSamplePoints([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    doExpand();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    previewAsPoints,
+    samplesPerShape,
+    shapeConstraintCount,
+    projectId,
+    setExpandedSamplePoints,
+  ]);
+
+  // Nothing to show if no shape constraints
+  if (shapeConstraintCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="p-4 border-b border-gray-800 space-y-3">
+      <h3 className="text-sm font-medium">Shape Visualization</h3>
+
+      {/* Preview toggle */}
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={previewAsPoints}
+          onChange={(e) => setPreviewAsPoints(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+        />
+        <span className="text-gray-300">Preview as points</span>
+        {isLoading && (
+          <span className="ml-auto text-xs text-gray-500">Loading...</span>
+        )}
+      </label>
+
+      {/* Samples per shape slider */}
+      {previewAsPoints && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <label htmlFor="samples-per-shape" className="text-gray-400">
+              Samples per shape
+            </label>
+            <input
+              id="samples-per-shape"
+              type="number"
+              min={10}
+              max={1000}
+              step={10}
+              value={samplesPerShape}
+              onChange={(e) =>
+                setSamplesPerShape(
+                  Math.max(10, Math.min(1000, parseInt(e.target.value) || 100)),
+                )
+              }
+              className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Status */}
+          {expandedSamplePoints.length > 0 && (
+            <p className="text-xs text-gray-500">
+              {expandedSamplePoints.length.toLocaleString()} points from{" "}
+              {shapeConstraintCount} shape
+              {shapeConstraintCount !== 1 ? "s" : ""}
+            </p>
+          )}
+
+          {error && <p className="text-xs text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Wrapper for AutoMode with store integration
 function AutoModePanel({ projectId }: { projectId: string }) {
   const result = useAutoAnalysisStore((s) => s.result);
@@ -335,7 +463,9 @@ function AutoModePanel({ projectId }: { projectId: string }) {
 
   const { refreshConstraints } = useConstraintSync(projectId);
 
-  const handleAnalyze = async (algorithms?: import("../../stores/autoAnalysisStore").AlgorithmType[]) => {
+  const handleAnalyze = async (
+    algorithms?: import("../../stores/autoAnalysisStore").AlgorithmType[],
+  ) => {
     setIsAnalyzing(true);
     setAnalyzeError(null);
     try {
@@ -598,6 +728,11 @@ export function LabelPanel() {
           <AutoModePanel projectId={currentProjectId} />
         )}
 
+        {/* Shape to points preview */}
+        {currentProjectId && (
+          <PreviewAsPointsSection projectId={currentProjectId} />
+        )}
+
         {/* Constraints list */}
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
@@ -855,7 +990,9 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
         >
           <option value="constant">Constant (fixed per constraint)</option>
           <option value="density">Density (proportional to volume)</option>
-          <option value="inverse_square">Inverse Square (more near surface)</option>
+          <option value="inverse_square">
+            Inverse Square (more near surface)
+          </option>
         </select>
       </div>
 
@@ -896,7 +1033,10 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
             value={samplesPerCubicMeter}
             onChange={(e) =>
               setSamplesPerCubicMeter(
-                Math.max(100, Math.min(1000000, parseInt(e.target.value) || 10000)),
+                Math.max(
+                  100,
+                  Math.min(1000000, parseInt(e.target.value) || 10000),
+                ),
               )
             }
             className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
@@ -919,7 +1059,10 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
               value={inverseSquareBaseSamples}
               onChange={(e) =>
                 setInverseSquareBaseSamples(
-                  Math.max(10, Math.min(10000, parseInt(e.target.value) || 100)),
+                  Math.max(
+                    10,
+                    Math.min(10000, parseInt(e.target.value) || 100),
+                  ),
                 )
               }
               className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"
@@ -938,7 +1081,10 @@ function ExportSection({ projectId, constraintCount }: ExportSectionProps) {
               value={inverseSquareFalloff}
               onChange={(e) =>
                 setInverseSquareFalloff(
-                  Math.max(0.5, Math.min(4.0, parseFloat(e.target.value) || 2.0)),
+                  Math.max(
+                    0.5,
+                    Math.min(4.0, parseFloat(e.target.value) || 2.0),
+                  ),
                 )
               }
               className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-right text-white focus:border-blue-500 focus:outline-none"

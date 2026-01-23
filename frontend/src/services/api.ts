@@ -314,6 +314,23 @@ export async function getSamples(
   return request(`/projects/${projectId}/samples?limit=${limit}`);
 }
 
+export interface ExpandedSamplePoint {
+  type: "sample_point";
+  sign: "solid" | "empty";
+  position: [number, number, number];
+  distance: number;
+}
+
+export async function expandToSamplePoints(
+  projectId: string,
+  samplesPerConstraint: number = 100,
+): Promise<ExpandedSamplePoint[]> {
+  return request(`/projects/${projectId}/samples/expand`, {
+    method: "POST",
+    body: JSON.stringify({ samples_per_constraint: samplesPerConstraint }),
+  });
+}
+
 export async function exportParquet(projectId: string): Promise<Blob> {
   const response = await fetch(
     `${API_BASE}/projects/${projectId}/export/parquet`,

@@ -90,7 +90,10 @@ function transformConstraint(backend: BackendConstraint): Constraint {
       };
       // Debug: log sample_point transformation
       if (!samplePoint.position) {
-        console.warn("[useConstraintSync] sample_point missing position:", backend);
+        console.warn(
+          "[useConstraintSync] sample_point missing position:",
+          backend,
+        );
       }
       return {
         ...base,

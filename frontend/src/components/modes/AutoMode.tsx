@@ -161,12 +161,12 @@ export function AutoMode({
 }: AutoModeProps) {
   const [showOptions, setShowOptions] = useState(false);
   // Track which algorithms are enabled for analysis
-  const [enabledAlgorithms, setEnabledAlgorithms] = useState<Set<AlgorithmType>>(
-    new Set(DEFAULT_ENABLED_ALGORITHMS)
-  );
+  const [enabledAlgorithms, setEnabledAlgorithms] = useState<
+    Set<AlgorithmType>
+  >(new Set(DEFAULT_ENABLED_ALGORITHMS));
   // Track which algorithms are expanded (showing their constraint items)
   const [expandedAlgorithms, setExpandedAlgorithms] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const selectedCount = selectedIndices.size;
   const totalCount = result?.generatedConstraints.length || 0;
@@ -379,7 +379,9 @@ export function AutoMode({
           <input
             type="checkbox"
             checked={options.hull_filter_enabled}
-            onChange={(e) => onSetOptions({ hull_filter_enabled: e.target.checked })}
+            onChange={(e) =>
+              onSetOptions({ hull_filter_enabled: e.target.checked })
+            }
             className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
           />
           <span className="text-gray-300">Filter by Alpha Shape</span>
@@ -404,7 +406,9 @@ export function AutoMode({
 
       {/* Flood Fill Output Mode (EMPTY) */}
       <div className="space-y-2 border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 font-medium">Flood Fill Output (Empty)</div>
+        <div className="text-xs text-gray-400 font-medium">
+          Flood Fill Output (Empty)
+        </div>
         <select
           value={options.flood_fill_output}
           onChange={(e) =>
@@ -434,12 +438,17 @@ export function AutoMode({
 
       {/* Voxel Regions Output Mode (SOLID) */}
       <div className="space-y-2 border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 font-medium">Voxel Regions Output (Solid)</div>
+        <div className="text-xs text-gray-400 font-medium">
+          Voxel Regions Output (Solid)
+        </div>
         <select
           value={options.voxel_regions_output}
           onChange={(e) =>
             onSetOptions({
-              voxel_regions_output: e.target.value as "boxes" | "samples" | "both",
+              voxel_regions_output: e.target.value as
+                | "boxes"
+                | "samples"
+                | "both",
             })
           }
           className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:border-blue-500 focus:outline-none"
@@ -464,7 +473,9 @@ export function AutoMode({
 
       {/* Algorithm selection */}
       <div className="space-y-2">
-        <div className="text-xs text-gray-400 font-medium">Algorithms to run:</div>
+        <div className="text-xs text-gray-400 font-medium">
+          Algorithms to run:
+        </div>
         <div className="grid grid-cols-1 gap-1">
           {ALL_ALGORITHMS.map((algo) => (
             <label
@@ -605,7 +616,6 @@ export function AutoMode({
           </LoadingButton>
         </div>
       )}
-
     </div>
   );
 }

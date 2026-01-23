@@ -192,7 +192,9 @@ class SamplePointConstraint(BaseConstraint):
 
     type: Literal["sample_point"] = "sample_point"
     position: tuple[float, float, float] = Field(..., description="Sample position (x, y, z)")
-    distance: float = Field(..., description="Signed distance to surface (negative=solid, positive=empty)")
+    distance: float = Field(
+        ..., description="Signed distance to surface (negative=solid, positive=empty)"
+    )
 
 
 # Union type for all constraints

@@ -21,6 +21,7 @@ from sdf_labeler_api.models.point_cloud import (
     PointCloudUploadResponse,
 )
 from sdf_labeler_api.models.samples import (
+    ExpandToPointsRequest,
     SampleGenerationRequest,
     SamplePreview,
     SampleVisualizationResponse,
@@ -493,6 +494,24 @@ async def get_samples(
         raise HTTPException(status_code=404, detail="Project not found")
 
     return sampling_service.get_samples_for_visualization(project_id, limit, subsample)
+
+
+@app.post("/v1/projects/{project_id}/samples/expand")
+async def expand_to_sample_points(
+    project_id: str,
+    request: ExpandToPointsRequest = ExpandToPointsRequest(),
+):
+    """Expand shape constraints to sample points for visualization.
+
+    Converts boxes, spheres, cylinders etc. to individual sample points
+    using inverse-square distance weighting. Returns sample_point constraint
+    dicts that can be visualized alongside auto-analysis sample points.
+    """
+    project = project_service.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return sampling_service.expand_to_sample_points(project_id, request.samples_per_constraint)
 
 
 # =============================================================================

@@ -37,21 +37,39 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 function Scene() {
   const projectId = useProjectStore((s) => s.currentProjectId);
   const mode = useProjectStore((s) => s.mode);
+  const expandedSamplePoints = useProjectStore((s) => s.expandedSamplePoints);
   const depthAware = useBrushStore((s) => s.depthAware);
   const seeds = useSeedStore((s) => s.seeds);
   const addSeed = useSeedStore((s) => s.addSeed);
   const propagationRadius = useSeedStore((s) => s.propagationRadius);
   const constraints = useLabelStore((s) =>
-    projectId ? s.constraintsByProject[projectId] || [] : []
+    projectId ? s.constraintsByProject[projectId] || [] : [],
   );
 
   // Filter sample_point constraints for visualization
-  const samplePointConstraints = constraints.filter(
-    (c): c is SamplePointConstraint => c.type === "sample_point"
+  const storedSamplePoints = constraints.filter(
+    (c): c is SamplePointConstraint => c.type === "sample_point",
   );
 
+  // Merge stored sample_point constraints with expanded shape previews
+  // Both have the same structure: { type, sign, position, distance }
+  const allSamplePoints: SamplePointConstraint[] = [
+    ...storedSamplePoints,
+    ...expandedSamplePoints.map((p, i) => ({
+      id: `expanded-${i}`,
+      type: "sample_point" as const,
+      sign: p.sign,
+      weight: 1.0,
+      createdAt: 0,
+      position: p.position,
+      distance: p.distance,
+    })),
+  ];
+
   // Debug: log constraint counts
-  console.log(`[App] Total constraints: ${constraints.length}, sample_point: ${samplePointConstraints.length}`);
+  console.log(
+    `[App] Total constraints: ${constraints.length}, stored sample_point: ${storedSamplePoints.length}, expanded: ${expandedSamplePoints.length}`,
+  );
 
   // Navigation always available via right-click (rotate) and middle-click (pan)
   // Left-click is reserved for tool interactions
@@ -117,9 +135,9 @@ function Scene() {
       {/* Sample visualization */}
       {projectId && <SampleViewer projectId={projectId} />}
 
-      {/* Sample point constraint visualization (IDW normal samples) */}
-      {samplePointConstraints.length > 0 && (
-        <SamplePointViewer constraints={samplePointConstraints} />
+      {/* Sample point constraint visualization (IDW normal samples + expanded shapes) */}
+      {allSamplePoints.length > 0 && (
+        <SamplePointViewer constraints={allSamplePoints} />
       )}
 
       {/* Camera controls - always enabled, right-click to rotate, middle-click to pan */}
