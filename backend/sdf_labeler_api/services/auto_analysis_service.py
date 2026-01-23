@@ -782,8 +782,9 @@ class AutoAnalysisService:
     ) -> list[GeneratedConstraint]:
         """Generate sample_point constraints from a voxel mask.
 
-        Uniformly samples points within marked voxels, computing distance
-        to the nearest surface point for each sample.
+        Uses inverse-square distance weighting: more samples near the surface,
+        fewer samples far away. This is ideal for SDF training where surface
+        accuracy is most critical.
         """
         from scipy.spatial import KDTree
 
@@ -797,12 +798,24 @@ class AutoAnalysisService:
         # Build KD-tree for distance computation
         tree = KDTree(xyz)
 
-        # Sample voxels (with replacement if needed)
         rng = np.random.default_rng(42)
-        if len(marked_indices) >= n_samples:
-            sample_indices = rng.choice(len(marked_indices), size=n_samples, replace=False)
-        else:
-            sample_indices = rng.choice(len(marked_indices), size=n_samples, replace=True)
+
+        # Compute voxel centers and their distances to surface
+        voxel_centers = bbox_min + (marked_indices + 0.5) * voxel_size
+        distances, _ = tree.query(voxel_centers, k=1)
+
+        # Inverse-square weighting: weight = 1 / (distance + epsilon)^2
+        # epsilon prevents division by zero for voxels touching surface
+        epsilon = voxel_size * 0.1
+        weights = 1.0 / (distances + epsilon) ** 2
+
+        # Normalize to probabilities
+        weights = weights / weights.sum()
+
+        # Sample voxels according to inverse-square weights
+        sample_indices = rng.choice(
+            len(marked_indices), size=n_samples, replace=True, p=weights
+        )
 
         for idx in sample_indices:
             voxel_ijk = marked_indices[idx]
