@@ -15,7 +15,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -26,10 +25,16 @@ jobs:
       packages: write
       attestations: write
       id-token: write
+    outputs:
+      image_name: ${{ steps.repo.outputs.lowercase }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get lowercase repo name
+        id: repo
+        run: echo "lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,7 +53,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.lowercase }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -71,7 +76,7 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/${{ steps.repo.outputs.lowercase }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
@@ -79,6 +84,8 @@ jobs:
     name: Verify Published Image
     runs-on: ubuntu-latest
     needs: [build-and-push]
+    env:
+      IMAGE_NAME: ${{ needs.build-and-push.outputs.image_name }}
     steps:
       - name: Log in to Container Registry
         uses: docker/login-action@v3
