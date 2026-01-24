@@ -221,8 +221,10 @@ fi
 # =============================================================================
 section "Pipeline Mode Tests"
 
-# Create a test pipeline file
-TEST_PIPELINE_DIR=$(mktemp -d) || { fail "Could not create temp directory"; exit 1; }
+# Create a test pipeline file - use explicit path for CI compatibility
+TEST_PIPELINE_DIR="${TMPDIR:-/tmp}/sdf-labeler-e2e-$$"
+mkdir -p "$TEST_PIPELINE_DIR" || { fail "Could not create temp directory"; }
+
 cat > "${TEST_PIPELINE_DIR}/test-pipeline.yml" << 'EOF'
 name: e2e-test-pipeline
 description: Test pipeline for E2E validation (dry-run only)
@@ -254,9 +256,10 @@ cleanup: true
 EOF
 
 # Test pipeline dry-run (validates YAML parsing and step structure)
+echo "Testing pipeline dry-run..."
 DRY_RUN=$(docker run --rm \
     -v "${TEST_PIPELINE_DIR}:/data/input:ro" \
-    "$IMAGE_NAME" cli pipeline /data/input/test-pipeline.yml --dry-run 2>&1)
+    "$IMAGE_NAME" cli pipeline /data/input/test-pipeline.yml --dry-run 2>&1) || true
 if echo "$DRY_RUN" | grep -q "DRY RUN"; then
     pass "Pipeline dry-run works"
 else
