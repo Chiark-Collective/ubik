@@ -9,9 +9,12 @@ project_name: example-project
 # Pipeline steps - executed in order
 steps:
   # Step 1: Load point cloud from a scenario dataset
+  # Available scenarios: S01_straight_vwalls, S02_straight_slope_pipe,
+  # S03_L_slope_two_pipes_box, S04_U_slope_multi_noise, S05_wide_slope_pair,
+  # S06_bumpy_wide_loop, S07_circular_well
   - name: Load trenchfoot scenario
     type: load_pointcloud
-    source: tf001
+    source: S01_straight_vwalls
     scenario_category: trenchfoot
     scenario_variant: culled
     estimate_normals: true

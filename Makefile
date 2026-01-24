@@ -3,7 +3,7 @@
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
         dev-down dev-restart test test-backend test-frontend test-e2e test-e2e-headed \
-        lint format clean docker-build docker-run docker-run-api docker-stop
+        lint format clean docker-build docker-run docker-run-api docker-stop test-docker
 
 SHELL := /bin/bash
 
@@ -44,6 +44,7 @@ help:
 	@echo "  make docker-run       Run webapp mode (port 8000)"
 	@echo "  make docker-run-api   Run API-only mode (port 8001)"
 	@echo "  make docker-stop      Stop Docker container"
+	@echo "  make test-docker      Run Docker E2E tests"
 	@echo ""
 	@echo "$(GREEN)Cleanup:$(RESET)"
 	@echo "  make clean            Remove build artifacts"
@@ -154,6 +155,10 @@ docker-run-api:
 docker-stop:
 	@echo "$(CYAN)Stopping Docker containers...$(RESET)"
 	docker-compose down
+
+test-docker: docker-build
+	@echo "$(CYAN)Running Docker E2E tests...$(RESET)"
+	./tests/e2e-docker/test_docker_modes.sh
 
 # =============================================================================
 # Cleanup
