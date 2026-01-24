@@ -276,6 +276,8 @@ fi
 # This test is optional - trenchfoot data may not be installed in CI
 echo "Testing full pipeline execution..."
 mkdir -p "${TEST_PIPELINE_DIR}/output"
+# Make output directory writable by Docker's appuser (uid 1000)
+chmod 777 "${TEST_PIPELINE_DIR}/output"
 
 PIPELINE_OUTPUT=$(docker run --rm \
     -v "${TEST_PIPELINE_DIR}:/data/input:ro" \
