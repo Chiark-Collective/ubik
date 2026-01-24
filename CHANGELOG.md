@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Docker Packaging**: Multi-mode containerization for deployment flexibility
+  - Webapp mode: Full interactive UI (frontend + backend) on port 8000
+  - API mode: Backend-only REST API for programmatic access
+  - Pipeline mode: CLI fire-and-forget execution from YAML definitions
+  - Multi-stage Dockerfile (Node + Python build stages)
+  - docker-compose files for different deployment scenarios
+- **CLI Pipeline System**: Automated batch processing via YAML configuration
+  - Step types: load_pointcloud, auto_analyze, apply_constraints, generate_samples, export
+  - Pydantic schema validation for pipeline definitions
+  - Dry-run mode for pipeline validation without execution
+  - Project management commands (list, get, delete)
 - **Auto Mode**: Automatic SDF region detection via ray propagation algorithm
   - Voxel-based approach with adaptive resolution (max 150³ grid)
   - EMPTY detection: Rays from sky (+Z) in 15° cone, flood-fill to reach trenches
