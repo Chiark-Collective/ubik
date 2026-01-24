@@ -1,0 +1,29 @@
+# ABOUTME: Docker Compose for SDF Labeler webapp mode (default)
+# ABOUTME: Serves both frontend UI and API on port 8000
+
+services:
+  sdf-labeler:
+    build: .
+    image: sdf-labeler:latest
+    container_name: sdf-labeler
+    ports:
+      - "8000:8000"
+    volumes:
+      - sdf-labeler-data:/data
+      # Mount local directories for input/output
+      - ./input:/data/input:ro
+      - ./output:/data/output
+    environment:
+      - SDF_LABELER_DATA_DIR=/data
+      - SDF_LABELER_PORT=8000
+      - SDF_LABELER_SERVE_FRONTEND=true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  sdf-labeler-data:

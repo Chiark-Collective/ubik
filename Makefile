@@ -3,7 +3,7 @@
 
 .PHONY: help install install-backend install-frontend dev dev-backend dev-frontend \
         dev-down dev-restart test test-backend test-frontend test-e2e test-e2e-headed \
-        lint format clean
+        lint format clean docker-build docker-run docker-run-api docker-stop
 
 SHELL := /bin/bash
 
@@ -38,6 +38,12 @@ help:
 	@echo "$(GREEN)Code Quality:$(RESET)"
 	@echo "  make lint             Run linters"
 	@echo "  make format           Format code"
+	@echo ""
+	@echo "$(GREEN)Docker:$(RESET)"
+	@echo "  make docker-build     Build Docker image"
+	@echo "  make docker-run       Run webapp mode (port 8000)"
+	@echo "  make docker-run-api   Run API-only mode (port 8001)"
+	@echo "  make docker-stop      Stop Docker container"
 	@echo ""
 	@echo "$(GREEN)Cleanup:$(RESET)"
 	@echo "  make clean            Remove build artifacts"
@@ -126,6 +132,28 @@ format:
 	cd backend && uv run ruff format .
 	@echo "$(CYAN)Formatting frontend...$(RESET)"
 	cd frontend && npm run format
+
+# =============================================================================
+# Docker
+# =============================================================================
+
+docker-build:
+	@echo "$(CYAN)Building Docker image...$(RESET)"
+	docker build -t sdf-labeler:latest .
+
+docker-run:
+	@echo "$(CYAN)Running in webapp mode...$(RESET)"
+	@echo "$(YELLOW)Access at: http://localhost:8000$(RESET)"
+	docker-compose up
+
+docker-run-api:
+	@echo "$(CYAN)Running in API-only mode...$(RESET)"
+	@echo "$(YELLOW)API at: http://localhost:8001$(RESET)"
+	docker-compose -f docker-compose.yml -f docker-compose.api.yml up
+
+docker-stop:
+	@echo "$(CYAN)Stopping Docker containers...$(RESET)"
+	docker-compose down
 
 # =============================================================================
 # Cleanup

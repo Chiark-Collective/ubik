@@ -2,7 +2,6 @@
 # ABOUTME: Uses pydantic-settings for environment variable loading
 
 from pathlib import Path
-from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -39,9 +38,14 @@ class Settings(BaseSettings):
 
     # CORS settings
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_allow_all: bool = False  # Allow all origins (for API mode behind proxy)
 
     # Survi integration (optional)
     survi_path: Path | None = None
+
+    # Docker/deployment settings
+    serve_frontend: bool = False  # Enable static file serving for webapp mode
+    frontend_dist_path: Path = Path("/app/frontend/dist")  # Path to frontend build
 
     def ensure_data_dir(self) -> Path:
         """Ensure data directory exists and return it."""

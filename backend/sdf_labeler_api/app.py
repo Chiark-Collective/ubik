@@ -2,23 +2,29 @@
 # ABOUTME: Defines routes for project management, point cloud handling, and sample generation
 
 from contextlib import asynccontextmanager
-from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from sdf_labeler_api.config import settings
-from sdf_labeler_api.models.constraints import Constraint, ConstraintSet
+from sdf_labeler_api.models.auto_analysis import (
+    ApplyConstraintsRequest,
+    AutoAnalysisResult,
+    AutoAnalyzeRequest,
+)
+from sdf_labeler_api.models.constraints import Constraint, ConstraintSet, SignConvention
+from sdf_labeler_api.models.pockets import PocketAnalysis
+from sdf_labeler_api.models.point_cloud import (
+    PointCloudStats,
+    PointCloudUploadResponse,
+)
 from sdf_labeler_api.models.project import (
     Project,
     ProjectConfig,
     ProjectCreate,
     ProjectList,
-)
-from sdf_labeler_api.models.point_cloud import (
-    PointCloudStats,
-    PointCloudUploadResponse,
 )
 from sdf_labeler_api.models.samples import (
     ExpandToPointsRequest,
@@ -27,20 +33,13 @@ from sdf_labeler_api.models.samples import (
     SampleVisualizationResponse,
     TrainingSampleSet,
 )
-from sdf_labeler_api.services.project_service import ProjectService
-from sdf_labeler_api.services.pointcloud_service import PointCloudService
-from sdf_labeler_api.services.constraint_service import ConstraintService
-from sdf_labeler_api.services.sampling_service import SamplingService
-from sdf_labeler_api.services.pocket_service import PocketService
-from sdf_labeler_api.services.auto_analysis_service import AutoAnalysisService
 from sdf_labeler_api.services import scenarios_service
-from sdf_labeler_api.models.pockets import PocketAnalysis
-from sdf_labeler_api.models.constraints import SignConvention
-from sdf_labeler_api.models.auto_analysis import (
-    ApplyConstraintsRequest,
-    AutoAnalysisResult,
-    AutoAnalyzeRequest,
-)
+from sdf_labeler_api.services.auto_analysis_service import AutoAnalysisService
+from sdf_labeler_api.services.constraint_service import ConstraintService
+from sdf_labeler_api.services.pocket_service import PocketService
+from sdf_labeler_api.services.pointcloud_service import PointCloudService
+from sdf_labeler_api.services.project_service import ProjectService
+from sdf_labeler_api.services.sampling_service import SamplingService
 
 
 @asynccontextmanager
@@ -60,10 +59,11 @@ app = FastAPI(
 )
 
 # Configure CORS for frontend
+cors_origins = ["*"] if settings.cors_allow_all else settings.cors_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=not settings.cors_allow_all,  # Can't use credentials with wildcard
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -638,3 +638,28 @@ async def load_scenario(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load scenario: {e}")
+
+
+# =============================================================================
+# Static File Serving (Webapp Mode)
+# =============================================================================
+
+if settings.serve_frontend and settings.frontend_dist_path.exists():
+    # Serve static assets (JS, CSS, images)
+    assets_path = settings.frontend_dist_path / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+
+    # SPA catch-all: serve index.html for any non-API routes
+    @app.get("/{full_path:path}", response_class=HTMLResponse)
+    async def serve_spa(request: Request, full_path: str):
+        """Serve the SPA for all non-API routes."""
+        # Skip API routes (they're already handled above)
+        if full_path.startswith("v1/") or full_path in ("health", "docs", "openapi.json"):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Serve index.html for SPA routing
+        index_path = settings.frontend_dist_path / "index.html"
+        if index_path.exists():
+            return HTMLResponse(content=index_path.read_text(), status_code=200)
+        raise HTTPException(status_code=404, detail="Frontend not built")

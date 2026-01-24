@@ -1,0 +1,53 @@
+# ABOUTME: Example pipeline for SDF training data generation
+# ABOUTME: Demonstrates all step types for CLI pipeline execution
+
+# Pipeline metadata
+name: example-trenchfoot-pipeline
+description: Generate SDF training data from a trenchfoot scenario
+project_name: example-project
+
+# Pipeline steps - executed in order
+steps:
+  # Step 1: Load point cloud from a scenario dataset
+  - name: Load trenchfoot scenario
+    type: load_pointcloud
+    source: tf001
+    scenario_category: trenchfoot
+    scenario_variant: culled
+    estimate_normals: true
+
+  # Step 2: Run automatic analysis to detect regions
+  - name: Run auto-analysis
+    type: auto_analyze
+    algorithms:
+      - flood_fill
+      - voxel_regions
+      - normal_idw
+    options:
+      min_gap_size: 0.10
+    # Apply all generated constraints automatically
+    apply_filter: all
+
+  # Step 3: Add manual constraints for known regions
+  - name: Add ground plane constraint
+    type: apply_constraints
+    constraints:
+      - type: halfspace
+        sign: solid
+        point: [0, 0, -0.5]
+        normal: [0, 0, 1]
+
+  # Step 4: Generate training samples
+  - name: Generate training samples
+    type: generate_samples
+    total_samples: 50000
+    strategy: inverse_square
+
+  # Step 5: Export results
+  - name: Export training data
+    type: export
+    format: parquet
+    output_path: /data/output
+
+# Don't delete the project after run (useful for debugging)
+cleanup: false

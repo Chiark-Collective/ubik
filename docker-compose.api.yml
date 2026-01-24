@@ -1,0 +1,11 @@
+# ABOUTME: Docker Compose override for API-only mode
+# ABOUTME: Use with: docker-compose -f docker-compose.yml -f docker-compose.api.yml up
+
+services:
+  sdf-labeler:
+    command: ["api"]
+    ports:
+      - "8001:8000"
+    environment:
+      - SDF_LABELER_SERVE_FRONTEND=false
+      - SDF_LABELER_CORS_ALLOW_ALL=true

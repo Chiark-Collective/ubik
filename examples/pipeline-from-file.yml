@@ -1,0 +1,38 @@
+# ABOUTME: Example pipeline loading from a PLY file
+# ABOUTME: Simpler pipeline for custom point cloud data
+
+name: file-based-pipeline
+description: Process a custom point cloud file
+
+steps:
+  # Load from a PLY file mounted in the container
+  - name: Load point cloud
+    type: load_pointcloud
+    source: /data/input/scan.ply
+    estimate_normals: true
+    normal_k: 16
+
+  # Run auto-analysis with conservative settings
+  - name: Auto-analyze
+    type: auto_analyze
+    algorithms:
+      - flood_fill
+      - voxel_regions
+    options:
+      min_gap_size: 0.15
+    apply_filter: all
+
+  # Generate samples
+  - name: Generate samples
+    type: generate_samples
+    total_samples: 100000
+    strategy: inverse_square
+
+  # Export
+  - name: Export
+    type: export
+    format: parquet
+    output_path: /data/output
+    filename: training_samples.parquet
+
+cleanup: true

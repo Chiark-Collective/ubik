@@ -1,0 +1,19 @@
+# ABOUTME: Docker Compose for one-shot pipeline runs
+# ABOUTME: Use: docker-compose -f docker-compose.pipeline.yml run --rm pipeline /data/input/pipeline.yml
+
+services:
+  pipeline:
+    build: .
+    image: sdf-labeler:latest
+    volumes:
+      - ./input:/data/input:ro
+      - ./output:/data/output
+      - sdf-labeler-data:/data/projects
+    environment:
+      - SDF_LABELER_DATA_DIR=/data/projects
+    entrypoint: ["/usr/bin/tini", "--", "/entrypoint.sh", "pipeline"]
+    # Command is the pipeline file path - override when running
+    command: ["/data/input/pipeline.yml"]
+
+volumes:
+  sdf-labeler-data:
