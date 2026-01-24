@@ -64,6 +64,9 @@ COPY --from=backend-builder /build/backend /app/backend
 # Copy frontend build
 COPY --from=frontend-builder /build/dist /app/frontend/dist
 
+# Copy example pipelines
+COPY examples/ /app/examples/
+
 # Copy entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

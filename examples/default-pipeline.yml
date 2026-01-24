@@ -1,0 +1,71 @@
+# ABOUTME: Default pipeline configuration for SDF Labeler
+# ABOUTME: Demonstrates recommended settings with both EMPTY and SOLID detection
+
+# Default Pipeline - SDF Training Data Generation
+# ================================================
+#
+# This pipeline demonstrates the recommended configuration for generating
+# complete SDF training data with both EMPTY (air) and SOLID (underground)
+# samples.
+#
+# Usage:
+#   docker run -v ./input:/data/input:ro -v ./output:/data/output \
+#     ubik:latest pipeline /app/examples/default-pipeline.yml
+#
+# Or copy and customize for your own data:
+#   docker cp <container>:/app/examples/default-pipeline.yml ./my-pipeline.yml
+
+name: default-trenchfoot-analysis
+description: Generate SDF training samples from trenchfoot scenario
+
+# Project name (auto-generated UUID suffix if not unique)
+project_name: trenchfoot-analysis
+
+steps:
+  # Step 1: Load point cloud data
+  # -----------------------------
+  # Options:
+  #   - scenario name: S01_straight_vwalls, S02_straight_slope_pipe, etc.
+  #   - file path: /data/input/my-pointcloud.ply
+  - name: Load point cloud
+    type: load_pointcloud
+    source: S01_straight_vwalls
+    scenario_category: trenchfoot  # 'trenchfoot' or 'sdf'
+    estimate_normals: true         # recommended for better analysis
+
+  # Step 2: Auto-analyze regions
+  # ----------------------------
+  # IMPORTANT: Use BOTH algorithms for complete coverage!
+  #   - flood_fill: detects EMPTY regions (air above surface)
+  #   - voxel_regions: detects SOLID regions (material below surface)
+  #
+  # Using only flood_fill will produce EMPTY samples only!
+  - name: Detect EMPTY and SOLID regions
+    type: auto_analyze
+    algorithms:
+      - flood_fill      # EMPTY: ray-cast from +Z (sky), find air/free-space
+      - voxel_regions   # SOLID: ray-cast from -Z (underground), find material
+    apply_filter: all   # Apply all generated constraints
+    # Options: 'all', 'solid', 'empty', 'none'
+
+  # Step 3: Generate training samples
+  # ---------------------------------
+  # Creates interpolated sample points from constraints using
+  # inverse-square distance weighting.
+  - name: Generate training samples
+    type: generate_samples
+    total_samples: 10000  # Target number of samples
+    # strategy: inverse_square  # default, recommended
+
+  # Step 4: Export to parquet
+  # -------------------------
+  # Output format compatible with survi SDF training:
+  #   python -m survi.cli sdf train --point-cloud output/samples.parquet
+  - name: Export parquet file
+    type: export
+    format: parquet
+    output_path: /data/output
+
+# Cleanup: delete project after pipeline completes
+# Set to false to keep project for inspection in webapp
+cleanup: true

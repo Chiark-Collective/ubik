@@ -8,19 +8,188 @@ from pathlib import Path
 
 from sdf_labeler_api.cli.pipeline import PipelineExecutor
 
+MAIN_HELP = """\
+SDF Labeler - Generate SDF training data from point clouds
+
+CONTAINER MODES:
+  webapp    Full interactive UI (default) - access at http://localhost:8000
+  api       Backend REST API only - for programmatic access
+  pipeline  Run YAML pipeline file - batch processing
+  cli       Direct CLI commands - project management & analysis
+
+EXAMPLES:
+  # Run webapp (default)
+  docker run -p 8000:8000 -v ./data:/data ubik:latest
+
+  # Run API-only mode
+  docker run -p 8000:8000 ubik:latest api
+
+  # Run a pipeline
+  docker run -v ./input:/data/input:ro -v ./output:/data/output \\
+    ubik:latest pipeline /data/input/my-pipeline.yml
+
+  # CLI commands
+  docker run ubik:latest cli project list
+  docker run ubik:latest cli --help
+
+For pipeline YAML format and more examples, run: cli help
+"""
+
+DETAILED_HELP = """\
+================================================================================
+                        SDF LABELER - DETAILED HELP
+================================================================================
+
+OVERVIEW
+--------
+SDF Labeler generates signed distance field (SDF) training data from point
+clouds. It detects EMPTY (air/free-space) and SOLID (underground/material)
+regions automatically, then exports training samples for SDF regression models.
+
+CONTAINER MODES
+---------------
+
+1. WEBAPP MODE (default)
+   Full interactive web UI with 3D viewer and manual labeling tools.
+
+   docker run -p 8000:8000 -v ./data:/data ubik:latest webapp
+   # Then open http://localhost:8000
+
+2. API MODE
+   Backend REST API only, for programmatic access or custom frontends.
+   CORS is enabled for all origins.
+
+   docker run -p 8000:8000 ubik:latest api
+   # Endpoints: /v1/projects, /v1/scenarios, /health, /docs
+
+3. PIPELINE MODE
+   Batch processing from YAML pipeline definitions. Fire-and-forget.
+
+   docker run -v ./input:/data/input:ro -v ./output:/data/output \\
+     ubik:latest pipeline /data/input/pipeline.yml
+
+4. CLI MODE
+   Direct command-line access for project management and debugging.
+
+   docker run ubik:latest cli project list
+   docker run ubik:latest cli analyze <project-id> --apply
+
+AUTO-ANALYSIS ALGORITHMS
+------------------------
+
+The auto-analysis system uses two complementary algorithms:
+
+  flood_fill     Detects EMPTY (air) regions by ray-casting from above (+Z).
+                 Rays propagate downward in a cone, finding sky-reachable space.
+                 Use for: free-space above trenches, open air, cavities.
+
+  voxel_regions  Detects SOLID (underground) regions by ray-casting from below.
+                 Rays propagate upward from -Z until hitting surface points.
+                 Use for: material below surface, trench walls, underground.
+
+IMPORTANT: Use BOTH algorithms together for complete coverage:
+
+  algorithms:
+    - flood_fill      # EMPTY samples (positive SDF - outside surface)
+    - voxel_regions   # SOLID samples (negative SDF - inside surface)
+
+Using only flood_fill will produce EMPTY samples only!
+
+PIPELINE YAML FORMAT
+--------------------
+
+name: my-pipeline
+project_name: optional-project-name  # auto-generated if omitted
+
+steps:
+  - name: Load point cloud
+    type: load_pointcloud
+    source: S01_straight_vwalls      # scenario name or file path
+    scenario_category: trenchfoot    # 'trenchfoot' or 'sdf'
+    estimate_normals: true
+
+  - name: Auto-analyze
+    type: auto_analyze
+    algorithms:
+      - flood_fill                   # EMPTY detection
+      - voxel_regions                # SOLID detection
+    apply_filter: all                # 'all', 'solid', 'empty', or 'none'
+
+  - name: Generate samples
+    type: generate_samples
+    total_samples: 10000             # target sample count
+
+  - name: Export
+    type: export
+    format: parquet                  # output format
+    output_path: /data/output        # where to write file
+
+cleanup: true  # delete project after pipeline completes
+
+AVAILABLE SCENARIOS
+-------------------
+
+Trenchfoot scenarios (synthetic trenches):
+  S01_straight_vwalls, S02_straight_slope_pipe, S03_L_slope_two_pipes_box,
+  S04_U_slope_multi_noise, S05_wide_slope_pair, S06_bumpy_wide_loop,
+  S07_circular_well
+
+SDF scenarios (terrain surfaces):
+  alpine_ridge_long, asteroid_cluster, bumpy_heterogeneous, cave_network_dense,
+  compact_extreme_relief, complex_random_polygon, flat_rect_small, and more.
+
+List all: curl http://localhost:8000/v1/scenarios
+
+OUTPUT FORMAT
+-------------
+
+Parquet files contain these columns:
+  x, y, z       3D position
+  phi           SDF value (positive=outside/empty, negative=inside/solid)
+  nx, ny, nz    Normal direction (zero for non-surface points)
+  weight        Sample weight (default 1.0)
+  source        Origin: 'idw_empty', 'idw_solid', 'surface', etc.
+  is_surface    Boolean: true if on surface boundary
+  is_free       Boolean: true if empty/air, false if solid/material
+
+Compatible with survi SDF training:
+  python -m survi.cli sdf train --point-cloud output/samples.parquet
+
+DEFAULT PIPELINE
+----------------
+
+A default pipeline is included at /app/examples/default-pipeline.yml
+that demonstrates the recommended configuration with both algorithms.
+
+================================================================================
+"""
+
 
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="sdf-labeler",
         description="SDF Labeler CLI - Pipeline execution and project management",
+        epilog=MAIN_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    # Help command
+    subparsers.add_parser(
+        "help",
+        help="Show detailed help for all modes and pipeline format",
+    )
+
     # Pipeline command
-    pipeline_parser = subparsers.add_parser("pipeline", help="Run a YAML pipeline")
+    pipeline_parser = subparsers.add_parser(
+        "pipeline",
+        help="Run a YAML pipeline",
+        description="Execute a YAML pipeline for batch processing point clouds.",
+        epilog="Example: cli pipeline /data/input/pipeline.yml --dry-run",
+    )
     pipeline_parser.add_argument("file", type=Path, help="Path to pipeline YAML file")
     pipeline_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     pipeline_parser.add_argument("--output-json", action="store_true", help="Output results as JSON")
@@ -53,7 +222,10 @@ def main() -> int:
         return 1
 
     try:
-        if args.command == "pipeline":
+        if args.command == "help":
+            print(DETAILED_HELP)
+            return 0
+        elif args.command == "pipeline":
             return run_pipeline(args)
         elif args.command == "project":
             return run_project_command(args)
