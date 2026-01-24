@@ -21,13 +21,33 @@ Ubik marks point clouds as "solid" (inside) or "empty" (outside), generating tra
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker (Recommended)
+
+```bash
+# Build and run
+docker build -t sdf-labeler .
+docker run -p 8000:8000 sdf-labeler
+
+# Or use docker-compose
+docker-compose up
+```
+
+Then open http://localhost:8000 in your browser.
+
+See [Docker Deployment Guide](docs/docker.md) for:
+- **Webapp Mode** - Full interactive UI
+- **API Mode** - Backend-only for integrations
+- **Pipeline Mode** - Batch processing from YAML
+
+### Option 2: Local Development
+
+#### Prerequisites
 
 - Python 3.11+
 - Node.js 18+
 - uv (Python package manager)
 
-### Installation
+#### Installation
 
 ```bash
 # Install all dependencies
@@ -38,14 +58,14 @@ make install-backend   # Backend only
 make install-frontend  # Frontend only
 ```
 
-### Running
+#### Running
 
 ```bash
 # Start both backend and frontend
 make dev
 
 # Or separately:
-make dev-backend   # Backend at http://localhost:8000
+make dev-backend   # Backend at http://localhost:8001
 make dev-frontend  # Frontend at http://localhost:5173
 ```
 
@@ -161,15 +181,56 @@ python -m survi.cli sdf train --point-cloud path/to/exported_samples.parquet
 - `POST /v1/projects/{id}/samples/generate` - Generate training samples
 - `GET /v1/projects/{id}/export/parquet` - Export as Parquet
 
+## Batch Processing (Pipeline Mode)
+
+For automated workflows, use YAML pipelines:
+
+```yaml
+# pipeline.yml
+name: my-pipeline
+steps:
+  - name: Load data
+    type: load_pointcloud
+    source: /data/input/scan.ply
+
+  - name: Auto-analyze
+    type: auto_analyze
+    algorithms: [flood_fill, voxel_regions]
+    apply_filter: all
+
+  - name: Generate samples
+    type: generate_samples
+    total_samples: 50000
+
+  - name: Export
+    type: export
+    format: parquet
+    output_path: /data/output
+```
+
+Run with Docker:
+```bash
+docker run -v $(pwd)/input:/data/input:ro \
+           -v $(pwd)/output:/data/output \
+           sdf-labeler pipeline /data/input/pipeline.yml
+```
+
+See [examples/](examples/) for more pipeline examples.
+
 ## Development
 
 ```bash
 # Run backend tests
 make test-backend
 
-# Run frontend E2E tests (requires dev servers running)
-make dev &                    # Start dev servers
-cd frontend && npm run e2e    # Run Playwright tests
+# Run frontend unit tests
+make test-frontend
+
+# Run frontend E2E tests
+make test-e2e
+
+# Run Docker E2E tests
+make test-docker
 
 # Lint code
 make lint
