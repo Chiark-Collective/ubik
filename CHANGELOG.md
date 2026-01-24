@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pydantic schema validation for pipeline definitions
   - Dry-run mode for pipeline validation without execution
   - Project management commands (list, get, delete)
+- **GitHub Actions CI/CD**: Automated testing and Docker publishing
+  - CI workflow: lint, backend tests, frontend tests, Docker build, E2E tests
+  - Publish workflow: Build and push to GHCR on releases (multi-arch: amd64/arm64)
+  - Docker E2E test suite covering all container modes
 - **Auto Mode**: Automatic SDF region detection via ray propagation algorithm
   - Voxel-based approach with adaptive resolution (max 150³ grid)
   - EMPTY detection: Rays from sky (+Z) in 15° cone, flood-fill to reach trenches
