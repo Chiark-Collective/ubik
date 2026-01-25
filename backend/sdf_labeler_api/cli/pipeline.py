@@ -238,9 +238,14 @@ class PipelineExecutor:
         assert self.project_id is not None
 
         # Build options from step config
-        options_dict = {}
+        options_dict = {
+            "flood_fill_sample_count": step.options.flood_fill_sample_count,
+            "voxel_regions_sample_count": step.options.voxel_regions_sample_count,
+        }
         if step.options.min_gap_size is not None:
             options_dict["min_gap_size"] = step.options.min_gap_size
+        if step.options.voxel_size is not None:
+            options_dict["voxel_size"] = step.options.voxel_size
         options = AutoAnalysisOptions(**options_dict)
 
         request = AutoAnalyzeRequest(
@@ -317,6 +322,7 @@ class PipelineExecutor:
         request = SampleGenerationRequest(
             total_samples=step.total_samples,
             strategy=step.strategy.value,
+            inverse_square_falloff=step.falloff,
         )
 
         result = self.sampling_service.generate(self.project_id, request)

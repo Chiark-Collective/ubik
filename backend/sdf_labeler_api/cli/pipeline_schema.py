@@ -45,6 +45,18 @@ class AutoAnalyzeOptions(BaseModel):
     min_gap_size: float | None = Field(default=None, description="Min gap size for flood fill")
     voxel_size: float | None = Field(default=None, description="Voxel size for voxel regions")
     idw_radius_multiplier: float | None = Field(default=None, description="Radius for normal IDW")
+    flood_fill_sample_count: int = Field(
+        default=500,
+        ge=50,
+        le=5000,
+        description="Number of EMPTY sample points from flood_fill algorithm",
+    )
+    voxel_regions_sample_count: int = Field(
+        default=500,
+        ge=50,
+        le=5000,
+        description="Number of SOLID sample points from voxel_regions algorithm",
+    )
 
 
 class AutoAnalyzeStep(BaseStep):
@@ -104,6 +116,12 @@ class GenerateSamplesStep(BaseStep):
     total_samples: int = Field(default=50000, description="Total number of samples to generate")
     strategy: SamplingStrategy = Field(
         default=SamplingStrategy.INVERSE_SQUARE, description="Sampling strategy"
+    )
+    falloff: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=4.0,
+        description="Distance falloff exponent (2.0 = inverse-square, 1.5 = gentler falloff)",
     )
 
 
