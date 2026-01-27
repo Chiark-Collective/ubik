@@ -318,6 +318,15 @@ wheels = [
 ]
 
 [[package]]
+name = "narwhals"
+version = "2.15.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/6d/b57c64e5038a8cf071bce391bb11551657a74558877ac961e7fa905ece27/narwhals-2.15.0.tar.gz", hash = "sha256:a9585975b99d95084268445a1fdd881311fa26ef1caa18020d959d5b2ff9a965", size = 603479 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/2e/cf2ffeb386ac3763526151163ad7da9f1b586aac96d2b4f7de1eaebf0c61/narwhals-2.15.0-py3-none-any.whl", hash = "sha256:cbfe21ca19d260d9fd67f995ec75c44592d1f106933b03ddd375df7ac841f9d6", size = 432856 },
+]
+
+[[package]]
 name = "networkx"
 version = "3.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -441,6 +450,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/1e/1bac1a839d12e6a82ec6cb40cda2edde64a2013a66963293696bbf31fbbb/pandas-2.3.3-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2e3ebdb170b5ef78f19bfb71b0dc5dc58775032361fa188e814959b74d726dd5", size = 12121582 },
     { url = "https://files.pythonhosted.org/packages/44/91/483de934193e12a3b1d6ae7c8645d083ff88dec75f46e827562f1e4b4da6/pandas-2.3.3-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:d051c0e065b94b7a3cea50eb1ec32e912cd96dba41647eb24104b6c6c14c5788", size = 12699963 },
     { url = "https://files.pythonhosted.org/packages/70/44/5191d2e4026f86a2a109053e194d3ba7a31a2d10a9c2348368c63ed4e85a/pandas-2.3.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:3869faf4bd07b3b66a9f462417d0ca3a9df29a9f6abd5d0d0dbab15dac7abe87", size = 13202175 },
+]
+
+[[package]]
+name = "plotly"
+version = "6.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/4f/8a10a9b9f5192cb6fdef62f1d77fa7d834190b2c50c0cd256bd62879212b/plotly-6.5.2.tar.gz", hash = "sha256:7478555be0198562d1435dee4c308268187553cc15516a2f4dd034453699e393", size = 7015695 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/67/f95b5460f127840310d2187f916cf0023b5875c0717fdf893f71e1325e87/plotly-6.5.2-py3-none-any.whl", hash = "sha256:91757653bd9c550eeea2fa2404dba6b85d1e366d54804c340b2c874e5a7eb4a4", size = 9895973 },
 ]
 
 [[package]]
@@ -851,6 +873,7 @@ dependencies = [
     { name = "networkx" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "plotly" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -891,6 +914,7 @@ requires-dist = [
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "pandas", specifier = ">=2.1.0" },
+    { name = "plotly", specifier = ">=5.18.0" },
     { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pydantic-settings", specifier = ">=2.1.0" },
@@ -902,7 +926,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scipy", specifier = ">=1.11.0" },
     { name = "surface-scenarios", extras = ["mesh"], specifier = ">=0.3.0" },
-    { name = "trenchfoot", specifier = ">=0.2.3" },
+    { name = "trenchfoot", specifier = ">=0.4.0" },
     { name = "trimesh", specifier = ">=4.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0" },
 ]
@@ -1010,14 +1034,14 @@ mesh = [
 
 [[package]]
 name = "trenchfoot"
-version = "0.2.7"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/7c/97c852c63c2c20bcef7f5fcced337306bc454537920fc9342595db2dcf65/trenchfoot-0.2.7.tar.gz", hash = "sha256:4fc24ff024cbd24a55d11036c60f5e5ddda5a69d5731f9fcf0215503c7911a99", size = 6800199 }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/f4/8749239305c17f95e71b0e64c57f32065c603188f531e4512b89515703b6/trenchfoot-0.4.0.tar.gz", hash = "sha256:6d3b69f4c1d95d19a4107c1f3217b1237250fc25972a75c4d2d166f35843592c", size = 20946045 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/3a/4b33c2dc1ef36c0428f13706d40b6233aa316d181d0c8e4d3ee0377dba1b/trenchfoot-0.2.7-py3-none-any.whl", hash = "sha256:a7e52dc9274969303572832ad3fac9eef555796bbbf5d46e4c56281a76f1dc67", size = 6857495 },
+    { url = "https://files.pythonhosted.org/packages/b6/f6/5113cd8f901f7231ae532f31c8f12906b596c47bcefd6d9443287374174e/trenchfoot-0.4.0-py3-none-any.whl", hash = "sha256:57c4a644967c1d0cf22ea9f14b946e5c597605dca2416963cfa3a2a285b7d8c7", size = 20998211 },
 ]
 
 [[package]]

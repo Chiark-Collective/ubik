@@ -215,6 +215,26 @@ def main() -> int:
     )
     analyze_parser.add_argument("--apply", action="store_true", help="Apply generated constraints")
 
+    # Visualize command
+    viz_parser = subparsers.add_parser(
+        "visualize",
+        help="Create interactive 3D visualization of SDF samples",
+        description="Generate an HTML file with Plotly 3D scatter plot of samples",
+    )
+    viz_parser.add_argument("samples", type=Path, help="Path to samples parquet file")
+    viz_parser.add_argument(
+        "--surface", "-s", type=Path, help="Optional surface point cloud (ply, parquet, csv, las)"
+    )
+    viz_parser.add_argument("--output", "-o", type=Path, help="Output HTML path")
+    viz_parser.add_argument(
+        "--sample",
+        type=float,
+        default=1.0,
+        help="Fraction of points to display (0.0-1.0, default: 1.0)",
+    )
+    viz_parser.add_argument("--point-size", type=int, default=3, help="Point size (default: 3)")
+    viz_parser.add_argument("--open", action="store_true", help="Open in browser after creation")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -231,6 +251,8 @@ def main() -> int:
             return run_project_command(args)
         elif args.command == "analyze":
             return run_analyze(args)
+        elif args.command == "visualize":
+            return run_visualize(args)
         else:
             parser.print_help()
             return 1
@@ -354,6 +376,34 @@ def run_analyze(args) -> int:
         for gc in result.generated_constraints:
             constraint_service.add_from_dict(args.project_id, gc.constraint.copy())
         print(f"Applied {len(result.generated_constraints)} constraints")
+
+    return 0
+
+
+def run_visualize(args) -> int:
+    """Create interactive visualization of SDF samples."""
+    from sdf_labeler_api.cli.visualize import create_visualization
+
+    if not args.samples.exists():
+        print(f"Error: samples file not found: {args.samples}", file=sys.stderr)
+        return 1
+
+    if args.surface and not args.surface.exists():
+        print(f"Error: surface file not found: {args.surface}", file=sys.stderr)
+        return 1
+
+    output_path = create_visualization(
+        samples_path=args.samples,
+        surface_path=args.surface,
+        output_path=args.output,
+        sample_fraction=args.sample,
+        point_size=args.point_size,
+    )
+
+    if args.open:
+        import webbrowser
+
+        webbrowser.open(f"file://{output_path.absolute()}")
 
     return 0
 
