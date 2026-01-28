@@ -345,7 +345,13 @@ class PipelineExecutor:
             if parquet_path:
                 filename = step.filename or f"{self.project_name}_samples.parquet"
                 dest = output_dir / filename
-                shutil.copy(parquet_path, dest)
+
+                if step.include_surface_points:
+                    # Create self-contained export with surface points included
+                    self._export_with_surface_points(parquet_path, dest)
+                else:
+                    shutil.copy(parquet_path, dest)
+
                 outputs.append(str(dest))
                 self.log_verbose(f"Exported: {dest}")
 
@@ -365,3 +371,57 @@ class PipelineExecutor:
                 self.log_verbose(f"Exported: {config_path}")
 
         return {"outputs": outputs}
+
+    def _export_with_surface_points(self, samples_parquet: Path, dest: Path) -> None:
+        """Export samples merged with surface points for self-contained output.
+
+        This creates a parquet file containing both:
+        - SDF constraint samples (from the sampling service)
+        - Surface points from the input point cloud (phi=0, is_surface=True)
+        """
+        import numpy as np
+        import pandas as pd
+
+        assert self.project_id is not None
+
+        # Load existing samples
+        samples_df = pd.read_parquet(samples_parquet)
+
+        # Load surface point cloud
+        points_path = (
+            settings.data_dir / "projects" / self.project_id / "pointcloud" / "points.npz"
+        )
+        if not points_path.exists():
+            # No point cloud - just copy the samples
+            samples_df.to_parquet(dest)
+            return
+
+        data = np.load(points_path)
+        xyz = data["xyz"]
+        normals = data["normals"] if data["normals"].size > 0 else None
+
+        # Create surface points DataFrame
+        surface_data = {
+            "x": xyz[:, 0],
+            "y": xyz[:, 1],
+            "z": xyz[:, 2],
+            "phi": np.zeros(len(xyz)),  # Surface points have phi=0
+            "nx": normals[:, 0] if normals is not None else np.zeros(len(xyz)),
+            "ny": normals[:, 1] if normals is not None else np.zeros(len(xyz)),
+            "nz": normals[:, 2] if normals is not None else np.zeros(len(xyz)),
+            "weight": np.ones(len(xyz)),
+            "source": ["surface"] * len(xyz),
+            "is_surface": [True] * len(xyz),
+            "is_free": [False] * len(xyz),  # Surface is boundary, not free space
+        }
+        surface_df = pd.DataFrame(surface_data)
+
+        # Concatenate samples + surface points
+        combined_df = pd.concat([samples_df, surface_df], ignore_index=True)
+
+        self.log_verbose(
+            f"Self-contained export: {len(samples_df)} samples + {len(surface_df)} surface points"
+        )
+
+        # Write combined parquet
+        combined_df.to_parquet(dest)

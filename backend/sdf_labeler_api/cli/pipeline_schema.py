@@ -139,6 +139,10 @@ class ExportStep(BaseStep):
     format: ExportFormat = Field(default=ExportFormat.PARQUET, description="Export format")
     output_path: str = Field(..., description="Output directory path")
     filename: str | None = Field(default=None, description="Output filename (auto-generated if not set)")
+    include_surface_points: bool = Field(
+        default=False,
+        description="Include original surface points (phi=0) in the parquet for self-contained export",
+    )
 
 
 # Union type for all steps

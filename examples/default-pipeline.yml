@@ -61,10 +61,14 @@ steps:
   # -------------------------
   # Output format compatible with survi SDF training:
   #   python -m survi.cli sdf train --point-cloud output/samples.parquet
+  #
+  # Set include_surface_points: true for self-contained export that includes
+  # the original input point cloud (surface points with phi=0) in the parquet.
   - name: Export parquet file
     type: export
     format: parquet
     output_path: /data/output
+    include_surface_points: true  # Self-contained: includes input points
 
 # Cleanup: delete project after pipeline completes
 # Set to false to keep project for inspection in webapp

@@ -123,8 +123,19 @@ steps:
     type: export
     format: parquet                  # output format
     output_path: /data/output        # where to write file
+    include_surface_points: true     # include input points for self-contained export
 
 cleanup: true  # delete project after pipeline completes
+
+SELF-CONTAINED EXPORT
+---------------------
+
+By default, exports contain only the SDF constraint samples (far-field EMPTY/SOLID
+points). Set `include_surface_points: true` to also include the original input
+point cloud in the parquet file. This creates a fully self-contained training
+dataset with both:
+  - Surface points (phi=0, is_surface=true) - the original point cloud
+  - Far-field samples (phi>0 for EMPTY, phi<0 for SOLID) - constraint samples
 
 AVAILABLE SCENARIOS
 -------------------
