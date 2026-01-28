@@ -166,6 +166,26 @@ Parquet files contain these columns:
 Compatible with survi SDF training:
   python -m survi.cli sdf train --point-cloud output/samples.parquet
 
+VISUALIZATION
+-------------
+
+Create interactive 3D HTML visualizations of sample data using Plotly:
+
+  cli visualize samples.parquet                    # Basic visualization
+  cli visualize samples.parquet --output viz.html  # Custom output path
+  cli visualize samples.parquet --sample 0.5       # Show 50% of points
+  cli visualize samples.parquet --point-size 2     # Smaller points
+  cli visualize samples.parquet --open             # Open in browser
+
+For self-contained exports (include_surface_points: true), the visualization
+will show three categories:
+  - Surface samples (gray): Original point cloud (phi=0)
+  - Empty (far-field, blue): Positive SDF constraint samples
+  - Solid (far-field, red): Negative SDF constraint samples
+
+You can also provide a separate surface file:
+  cli visualize samples.parquet --surface input.ply
+
 DEFAULT PIPELINE
 ----------------
 
