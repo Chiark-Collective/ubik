@@ -203,7 +203,9 @@ def main() -> int:
     )
     pipeline_parser.add_argument("file", type=Path, help="Path to pipeline YAML file")
     pipeline_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
-    pipeline_parser.add_argument("--output-json", action="store_true", help="Output results as JSON")
+    pipeline_parser.add_argument(
+        "--output-json", action="store_true", help="Output results as JSON"
+    )
 
     # Project commands
     project_parser = subparsers.add_parser("project", help="Project management")
@@ -274,6 +276,7 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 
@@ -380,7 +383,7 @@ def run_analyze(args) -> int:
 
     print(f"\nGenerated {len(result.generated_constraints)} constraints:")
     for i, gc in enumerate(result.generated_constraints):
-        print(f"  {i+1}. [{gc.constraint.get('type', 'unknown')}] {gc.description}")
+        print(f"  {i + 1}. [{gc.constraint.get('type', 'unknown')}] {gc.description}")
 
     if args.apply and result.generated_constraints:
         print("\nApplying constraints...")

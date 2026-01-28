@@ -1,7 +1,6 @@
 # ABOUTME: Unit tests for ProjectService
 # ABOUTME: Tests CRUD operations for labeling projects
 
-import pytest
 
 from sdf_labeler_api.models.project import ProjectConfig, ProjectCreate
 from sdf_labeler_api.services.project_service import ProjectService

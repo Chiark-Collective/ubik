@@ -1159,6 +1159,7 @@ class TestFullAnalysis:
     ):
         """Generated constraints should be valid for add_from_dict."""
         from pydantic import TypeAdapter
+
         from sdf_labeler_api.models.constraints import Constraint
 
         _ = simple_cube_pointcloud  # Fixture creates pointcloud file

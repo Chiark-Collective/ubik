@@ -1,8 +1,6 @@
 # ABOUTME: API integration tests for SDF Labeler
 # ABOUTME: Tests all REST endpoints end-to-end
 
-import io
-import json
 from pathlib import Path
 
 import numpy as np

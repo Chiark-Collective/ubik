@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from importlib import resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np

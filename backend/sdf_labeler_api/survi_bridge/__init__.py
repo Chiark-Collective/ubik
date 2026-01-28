@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 SURVI_AVAILABLE = False
 
 try:
+    from survi.sdf.normals import estimate_normals, orient_normals
     from survi.sdf.sampling import (
-        sample_training_mixture,
-        sample_surface_anchors,
         sample_band,
         sample_far_field_global,
+        sample_surface_anchors,
+        sample_training_mixture,
     )
-    from survi.sdf.spec import SDFTaskSpec, SDF_COLUMNS
-    from survi.sdf.normals import estimate_normals, orient_normals
+    from survi.sdf.spec import SDF_COLUMNS, SDFTaskSpec
 
     SURVI_AVAILABLE = True
     logger.info("Survi integration available")

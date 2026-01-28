@@ -1,9 +1,9 @@
 # ABOUTME: Constraint models for SDF labeling
 # ABOUTME: Defines geometric primitives and regions for inside/outside marking
 
-from enum import Enum
-from typing import Annotated, Literal, Union
 import uuid
+from enum import Enum
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -199,19 +199,17 @@ class SamplePointConstraint(BaseConstraint):
 
 # Union type for all constraints
 Constraint = Annotated[
-    Union[
-        BoxConstraint,
-        SphereConstraint,
-        HalfspaceConstraint,
-        CylinderConstraint,
-        BrushStrokeConstraint,
-        SeedPropagationConstraint,
-        MLImportConstraint,
-        RayCarveConstraint,
-        PocketConstraint,
-        SliceSelectionConstraint,
-        SamplePointConstraint,
-    ],
+    BoxConstraint
+    | SphereConstraint
+    | HalfspaceConstraint
+    | CylinderConstraint
+    | BrushStrokeConstraint
+    | SeedPropagationConstraint
+    | MLImportConstraint
+    | RayCarveConstraint
+    | PocketConstraint
+    | SliceSelectionConstraint
+    | SamplePointConstraint,
     Field(discriminator="type"),
 ]
 

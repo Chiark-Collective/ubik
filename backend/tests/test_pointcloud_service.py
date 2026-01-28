@@ -2,7 +2,6 @@
 # ABOUTME: Tests point cloud loading, octree building, and tile streaming
 
 import io
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 

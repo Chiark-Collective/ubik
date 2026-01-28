@@ -1,9 +1,9 @@
 # ABOUTME: Project-related Pydantic models
 # ABOUTME: Defines project metadata, configuration, and state
 
+import uuid
 from datetime import datetime
 from typing import Literal
-import uuid
 
 from pydantic import BaseModel, Field
 

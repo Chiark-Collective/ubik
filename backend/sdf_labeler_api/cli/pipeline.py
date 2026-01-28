@@ -82,7 +82,9 @@ class PipelineExecutor:
             self.log_verbose(f"Description: {pipeline.description}")
 
         step_counts = pipeline.get_step_counts()
-        self.log(f"Steps: {len(pipeline.steps)} ({', '.join(f'{k}:{v}' for k, v in step_counts.items())})")
+        self.log(
+            f"Steps: {len(pipeline.steps)} ({', '.join(f'{k}:{v}' for k, v in step_counts.items())})"
+        )
 
         if dry_run:
             self.log("DRY RUN - no changes will be made")
@@ -231,7 +233,10 @@ class PipelineExecutor:
         )
 
         self.log_verbose(f"Loaded {result.point_count} points")
-        return {"point_count": result.point_count, "bounds": [result.bounds_low, result.bounds_high]}
+        return {
+            "point_count": result.point_count,
+            "bounds": [result.bounds_low, result.bounds_high],
+        }
 
     async def _execute_auto_analyze(self, step: AutoAnalyzeStep) -> dict:
         """Execute an auto_analyze step."""
@@ -280,7 +285,9 @@ class PipelineExecutor:
                     self.constraint_service.add_from_dict(self.project_id, constraint_data)
                     applied_count += 1
 
-        self.log_verbose(f"Generated {len(result.generated_constraints)} constraints, applied {applied_count}")
+        self.log_verbose(
+            f"Generated {len(result.generated_constraints)} constraints, applied {applied_count}"
+        )
         return {
             "generated": len(result.generated_constraints),
             "applied": applied_count,
@@ -365,6 +372,7 @@ class PipelineExecutor:
                     config_filename = config_filename.replace(".parquet.json", ".json")
                 config_path = output_dir / config_filename
                 import json
+
                 with open(config_path, "w") as f:
                     json.dump(config, f, indent=2)
                 outputs.append(str(config_path))
@@ -388,9 +396,7 @@ class PipelineExecutor:
         samples_df = pd.read_parquet(samples_parquet)
 
         # Load surface point cloud
-        points_path = (
-            settings.data_dir / "projects" / self.project_id / "pointcloud" / "points.npz"
-        )
+        points_path = settings.data_dir / "projects" / self.project_id / "pointcloud" / "points.npz"
         if not points_path.exists():
             # No point cloud - just copy the samples
             samples_df.to_parquet(dest)

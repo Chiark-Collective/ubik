@@ -29,8 +29,10 @@ def create_visualization(
     """
     try:
         import plotly.graph_objects as go
-    except ImportError:
-        raise ImportError("plotly is required for visualization. Install with: pip install plotly")
+    except ImportError as err:
+        raise ImportError(
+            "plotly is required for visualization. Install with: pip install plotly"
+        ) from err
 
     # Load samples
     df = pd.read_parquet(samples_path)
@@ -39,12 +41,12 @@ def create_visualization(
     # Subsample if needed
     if sample_fraction < 1.0:
         df = df.sample(frac=sample_fraction, random_state=42)
-        print(f"Subsampled to {len(df)} points ({sample_fraction*100:.0f}%)")
+        print(f"Subsampled to {len(df)} points ({sample_fraction * 100:.0f}%)")
 
     # Split into empty and solid
-    empty_mask = df["is_free"] == True
-    solid_mask = df["is_free"] == False
-    surface_mask = df["is_surface"] == True
+    empty_mask = df["is_free"].fillna(False).astype(bool)
+    solid_mask = ~empty_mask
+    surface_mask = df["is_surface"].fillna(False).astype(bool)
 
     empty_df = df[empty_mask & ~surface_mask]
     solid_df = df[solid_mask & ~surface_mask]

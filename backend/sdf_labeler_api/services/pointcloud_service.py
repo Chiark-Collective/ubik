@@ -3,10 +3,14 @@
 
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from fastapi import UploadFile
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import trimesh
 
 from sdf_labeler_api.config import Settings
 from sdf_labeler_api.models.point_cloud import (
@@ -14,7 +18,6 @@ from sdf_labeler_api.models.point_cloud import (
     OctreeNodeInfo,
     PointCloudStats,
     PointCloudUploadResponse,
-    TileData,
 )
 
 
@@ -446,8 +449,6 @@ class PointCloudService:
         Returns:
             PointCloudUploadResponse with point cloud metadata
         """
-        import pandas as pd
-        import trimesh
 
         # Extract coordinates
         xyz = df[["x", "y", "z"]].values.astype(np.float64)

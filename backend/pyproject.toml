@@ -54,7 +54,17 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "E402",   # Module level import not at top (acceptable after logging setup)
+    "E741",   # Ambiguous variable name (context makes it clear)
+    "B008",   # Function call in argument defaults (standard FastAPI pattern)
+    "B904",   # raise-without-from-inside-except (intentional for HTTPException)
+    "B905",   # zip() without strict= (not required for same-length iterables)
+    "C408",   # Unnecessary dict() call (idiomatic Plotly style)
+    "SIM102", # Nested if (sometimes clearer than combined conditions)
+    "SIM108", # Ternary operator (sometimes clearer as if/else)
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sdf_labeler_api"]

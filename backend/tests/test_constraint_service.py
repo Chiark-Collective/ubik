@@ -1,7 +1,6 @@
 # ABOUTME: Unit tests for ConstraintService
 # ABOUTME: Tests CRUD operations for geometric constraints
 
-import pytest
 
 from sdf_labeler_api.models.constraints import (
     BoxConstraint,

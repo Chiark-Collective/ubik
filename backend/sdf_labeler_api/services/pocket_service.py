@@ -2,7 +2,7 @@
 # ABOUTME: Provides flood-fill based cavity detection for click-pocket annotation
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -271,7 +271,7 @@ class PocketService:
         analysis = PocketAnalysis(
             grid_metadata=grid_metadata,
             pockets=pockets,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )
 
         # Cache results

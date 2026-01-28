@@ -1,7 +1,6 @@
 # ABOUTME: Unit tests for ray_carve constraint sampling with adaptive back buffer
 # ABOUTME: Tests local spacing-based back buffer and fallback behavior
 
-import numpy as np
 import pytest
 
 from sdf_labeler_api.models.constraints import (

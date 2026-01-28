@@ -1,9 +1,7 @@
 # ABOUTME: Pytest fixtures for SDF Labeler API tests
 # ABOUTME: Provides test clients, temporary directories, and sample data
 
-import tempfile
 from pathlib import Path
-from typing import Generator
 
 import numpy as np
 import pytest

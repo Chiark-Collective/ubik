@@ -1,7 +1,7 @@
 # ABOUTME: Pocket detection models for voxel-based cavity analysis
 # ABOUTME: Defines voxel grid metadata and pocket region representations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -50,7 +50,7 @@ class PocketAnalysis(BaseModel):
     grid_metadata: VoxelGridMetadata = Field(..., description="Voxel grid info")
     pockets: list[PocketInfo] = Field(default_factory=list, description="Detected pockets")
     computed_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="When analysis was performed",
     )
 

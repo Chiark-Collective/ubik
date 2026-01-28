@@ -4,15 +4,15 @@
 import pytest
 
 from sdf_labeler_api.survi_bridge import (
-    SURVI_AVAILABLE,
     SDF_COLUMNS,
-    sample_training_mixture,
-    sample_surface_anchors,
-    sample_band,
-    sample_far_field_global,
+    SURVI_AVAILABLE,
+    SDFTaskSpec,
     estimate_normals,
     orient_normals,
-    SDFTaskSpec,
+    sample_band,
+    sample_far_field_global,
+    sample_surface_anchors,
+    sample_training_mixture,
 )
 
 
@@ -48,7 +48,7 @@ class TestSurviBridge:
             "is_surface",
             "is_free",
         ]
-        assert SDF_COLUMNS == expected
+        assert expected == SDF_COLUMNS
 
     def test_sdf_task_spec_exists(self):
         """Test that SDFTaskSpec class exists."""

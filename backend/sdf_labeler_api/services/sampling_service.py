@@ -3,10 +3,13 @@
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from sdf_labeler_api.models.samples import SampleVisualizationResponse
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +184,7 @@ class SamplingService:
                 count += len(c.stroke_points) * samples_per_primitive
             elif isinstance(c, SeedPropagationConstraint):
                 count += len(c.propagated_indices)
-            elif isinstance(c, (BoxConstraint, SphereConstraint, HalfspaceConstraint)):
+            elif isinstance(c, BoxConstraint | SphereConstraint | HalfspaceConstraint):
                 count += samples_per_primitive
             elif isinstance(c, RayCarveConstraint):
                 # Each ray generates samples_per_primitive samples

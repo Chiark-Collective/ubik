@@ -34,9 +34,7 @@ class LoadPointcloudStep(BaseStep):
     scenario_category: str | None = Field(
         default=None, description="Scenario category ('trenchfoot' or 'sdf') if loading scenario"
     )
-    scenario_variant: str = Field(
-        default="culled", description="Variant for trenchfoot scenarios"
-    )
+    scenario_variant: str = Field(default="culled", description="Variant for trenchfoot scenarios")
 
 
 class AutoAnalyzeOptions(BaseModel):
@@ -97,9 +95,7 @@ class ApplyConstraintsStep(BaseStep):
     """Add manual constraints to the project."""
 
     type: Literal[StepType.APPLY_CONSTRAINTS] = StepType.APPLY_CONSTRAINTS
-    constraints: list[ConstraintSpec] = Field(
-        ..., description="List of constraints to add"
-    )
+    constraints: list[ConstraintSpec] = Field(..., description="List of constraints to add")
 
 
 class SamplingStrategy(str, Enum):
@@ -138,7 +134,9 @@ class ExportStep(BaseStep):
     type: Literal[StepType.EXPORT] = StepType.EXPORT
     format: ExportFormat = Field(default=ExportFormat.PARQUET, description="Export format")
     output_path: str = Field(..., description="Output directory path")
-    filename: str | None = Field(default=None, description="Output filename (auto-generated if not set)")
+    filename: str | None = Field(
+        default=None, description="Output filename (auto-generated if not set)"
+    )
     include_surface_points: bool = Field(
         default=False,
         description="Include original surface points (phi=0) in the parquet for self-contained export",
@@ -147,11 +145,7 @@ class ExportStep(BaseStep):
 
 # Union type for all steps
 PipelineStep = Annotated[
-    LoadPointcloudStep
-    | AutoAnalyzeStep
-    | ApplyConstraintsStep
-    | GenerateSamplesStep
-    | ExportStep,
+    LoadPointcloudStep | AutoAnalyzeStep | ApplyConstraintsStep | GenerateSamplesStep | ExportStep,
     Field(discriminator="type"),
 ]
 

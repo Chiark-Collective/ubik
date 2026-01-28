@@ -97,7 +97,9 @@ def self_contained_pipeline(tmp_path):
 class TestPipelineExport:
     """Tests for pipeline export functionality."""
 
-    def test_basic_export_excludes_surface_points(self, pipeline_executor, simple_pipeline, tmp_path):
+    def test_basic_export_excludes_surface_points(
+        self, pipeline_executor, simple_pipeline, tmp_path
+    ):
         """Test that basic export (include_surface_points=False) only contains samples."""
         result = pipeline_executor.run(simple_pipeline, dry_run=False)
 
@@ -114,7 +116,9 @@ class TestPipelineExport:
 
         # Verify no surface points (source should not be 'surface')
         sources = df["source"].unique()
-        assert "surface" not in sources, f"Basic export should not contain 'surface' source, got {sources}"
+        assert "surface" not in sources, (
+            f"Basic export should not contain 'surface' source, got {sources}"
+        )
 
         # Should have constraint-based samples
         assert len(df) > 0
@@ -139,7 +143,9 @@ class TestPipelineExport:
 
         # Verify surface points are present
         sources = df["source"].unique()
-        assert "surface" in sources, f"Self-contained export should contain 'surface' source, got {sources}"
+        assert "surface" in sources, (
+            f"Self-contained export should contain 'surface' source, got {sources}"
+        )
 
         # Check surface points have correct properties
         surface_df = df[df["source"] == "surface"]
@@ -153,7 +159,9 @@ class TestPipelineExport:
 
         # Should also have constraint samples
         non_surface_df = df[df["source"] != "surface"]
-        assert len(non_surface_df) > 0, "Should have constraint samples in addition to surface points"
+        assert len(non_surface_df) > 0, (
+            "Should have constraint samples in addition to surface points"
+        )
 
     def test_self_contained_export_has_all_columns(
         self, pipeline_executor, self_contained_pipeline, tmp_path
@@ -165,7 +173,19 @@ class TestPipelineExport:
         parquet_files = list(output_dir.glob("*.parquet"))
         df = pd.read_parquet(parquet_files[0])
 
-        required_columns = ["x", "y", "z", "phi", "nx", "ny", "nz", "weight", "source", "is_surface", "is_free"]
+        required_columns = [
+            "x",
+            "y",
+            "z",
+            "phi",
+            "nx",
+            "ny",
+            "nz",
+            "weight",
+            "source",
+            "is_surface",
+            "is_free",
+        ]
         for col in required_columns:
             assert col in df.columns, f"Missing required column: {col}"
 
