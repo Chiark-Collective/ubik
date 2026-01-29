@@ -20,6 +20,8 @@ dependencies = [
     "pyarrow>=14.0.0",
     "python-multipart>=0.0.6",
     "aiofiles>=23.2.0",
+    # Core analysis/sampling engine
+    "sdf-sampler>=0.1.0",
     # Scenario datasets
     "surface-scenarios[mesh]>=0.3.0",
     "trenchfoot>=0.4.0",

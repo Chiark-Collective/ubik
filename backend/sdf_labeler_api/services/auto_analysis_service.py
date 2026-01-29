@@ -1,5 +1,5 @@
 # ABOUTME: Auto-analysis service for constraint-based SDF region detection
-# ABOUTME: Generates spatial constraints (boxes, halfspaces, pockets) from point cloud analysis
+# ABOUTME: Delegates to sdf-sampler for core algorithms, handles project I/O and caching
 
 import json
 import uuid
@@ -9,6 +9,10 @@ from pathlib import Path
 import numpy as np
 from scipy.ndimage import binary_dilation, label
 from scipy.spatial import ConvexHull, Delaunay, KDTree
+
+# Core analysis engine
+from sdf_sampler import SDFAnalyzer
+from sdf_sampler.config import AnalyzerConfig, AutoAnalysisOptions as SamplerOptions
 
 from sdf_labeler_api.config import Settings
 from sdf_labeler_api.models.auto_analysis import (
@@ -193,18 +197,59 @@ class AutoAnalysisService:
         project_id: str,
         options: AutoAnalysisOptions,
     ) -> list[GeneratedConstraint]:
-        """Run a single analysis algorithm."""
+        """Run a single analysis algorithm using sdf-sampler engine."""
+        # Pocket uses project-specific caching via PocketService
         if name == AlgorithmType.POCKET.value:
             return self._generate_pocket_constraints(project_id)
-        elif name == AlgorithmType.NORMAL_OFFSET.value:
-            return self._generate_normal_offset_boxes(xyz, normals, options)
-        elif name == AlgorithmType.FLOOD_FILL.value:
-            return self._generate_flood_fill_constraints(xyz, normals, options)
-        elif name == AlgorithmType.VOXEL_REGIONS.value:
-            return self._generate_voxel_region_constraints(xyz, normals, options)
-        elif name == AlgorithmType.NORMAL_IDW.value:
-            return self._generate_idw_normal_samples(xyz, normals, options)
-        return []
+
+        # Delegate to sdf-sampler for core algorithms
+        sampler_options = self._convert_to_sampler_options(options)
+        analyzer = SDFAnalyzer()
+        result = analyzer.analyze(
+            xyz=xyz,
+            normals=normals,
+            algorithms=[name],
+            options=sampler_options,
+        )
+
+        # Convert sdf-sampler results to backend GeneratedConstraint format
+        return self._convert_sampler_results(result.generated_constraints)
+
+    def _convert_to_sampler_options(self, options: AutoAnalysisOptions) -> SamplerOptions:
+        """Convert backend options to sdf-sampler options."""
+        return SamplerOptions(
+            min_gap_size=options.min_gap_size,
+            max_grid_dim=options.max_grid_dim,
+            cone_angle=options.cone_angle,
+            normal_offset_pairs=options.normal_offset_pairs,
+            max_boxes=options.max_boxes,
+            overlap_threshold=options.overlap_threshold,
+            idw_sample_count=options.idw_sample_count,
+            idw_max_distance=options.idw_max_distance,
+            idw_power=options.idw_power,
+            hull_filter_enabled=False,  # Backend handles hull filtering separately
+            hull_alpha=options.hull_alpha,
+            flood_fill_output=options.flood_fill_output,
+            flood_fill_sample_count=options.flood_fill_sample_count,
+            voxel_regions_output=options.voxel_regions_output,
+            voxel_regions_sample_count=options.voxel_regions_sample_count,
+        )
+
+    def _convert_sampler_results(
+        self, sampler_constraints: list
+    ) -> list[GeneratedConstraint]:
+        """Convert sdf-sampler constraints to backend format."""
+        results = []
+        for sc in sampler_constraints:
+            results.append(
+                GeneratedConstraint(
+                    constraint=sc.constraint,
+                    algorithm=AlgorithmType(sc.algorithm.value),
+                    confidence=sc.confidence,
+                    description=sc.description,
+                )
+            )
+        return results
 
     def _generate_pocket_constraints(self, project_id: str) -> list[GeneratedConstraint]:
         """Generate PocketConstraints from detected cavities.

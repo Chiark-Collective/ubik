@@ -4,7 +4,9 @@ Spraypaint SDF (Signed Distance Field) far-field constraints onto your point clo
 
 ## Overview
 
-Ubik marks point clouds as "solid" (inside) or "empty" (outside), generating training data for SDF regression models. 
+Ubik marks point clouds as "solid" (inside) or "empty" (outside), generating training data for SDF regression models.
+
+**Core Engine**: [sdf-sampler](https://github.com/Chiark-Collective/sdf-sampler) - the auto-analysis and sampling algorithms are available as a standalone PyPI package (`pip install sdf-sampler`) for use in your own pipelines. 
 
 ## Features
 
