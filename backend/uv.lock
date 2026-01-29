@@ -926,7 +926,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scipy", specifier = ">=1.11.0" },
-    { name = "sdf-sampler", specifier = ">=0.2.0" },
+    { name = "sdf-sampler", specifier = ">=0.3.0" },
     { name = "surface-scenarios", extras = ["mesh"], specifier = ">=0.3.0" },
     { name = "trenchfoot", specifier = ">=0.4.0" },
     { name = "trimesh", specifier = ">=4.0.0" },
@@ -944,7 +944,7 @@ dev = [
 
 [[package]]
 name = "sdf-sampler"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alphashape" },
@@ -954,9 +954,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/38/6a38b44357292dab938677657c96038999e5e4309a698c0e3b9bc956dfa5/sdf_sampler-0.2.0.tar.gz", hash = "sha256:af5d3ae1cbea751815aeeac43bc4689685c3c08455cb22bc3f0857c2f0a0ce76", size = 104937 }
+sdist = { url = "https://files.pythonhosted.org/packages/05/82/054ce7043789fb20ee52342a0bb252afd9d3c84c51c528354fb18d3ea181/sdf_sampler-0.3.0.tar.gz", hash = "sha256:a80cb26fc4cacd1407993d6a2b004563df9ba88934e55743de1921b03226d1b2", size = 106854 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cc/8b/63100797a0335b79e7c24e2ab9a03ad175cbf56db358805d647fb7d0bfe0/sdf_sampler-0.2.0-py3-none-any.whl", hash = "sha256:c4b0092d45137b84cd469c82a0533c3d88f15ff8ece19fe24ee161892a16f5ab", size = 41154 },
+    { url = "https://files.pythonhosted.org/packages/8b/77/3f78553b23d50ea9ee5cf6b0cc896cb0e62720a5815edf50b380985a1644/sdf_sampler-0.3.0-py3-none-any.whl", hash = "sha256:cf535a5ce39da6f1a6003f0719a144fccfc955f2f9acc3e1b13959c679028952", size = 43078 },
 ]
 
 [[package]]
